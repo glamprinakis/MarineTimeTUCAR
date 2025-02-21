@@ -5,27 +5,47 @@ using MixedReality.Toolkit.UX;
 
 public class ScalingScript : MonoBehaviour
 {
-    private List<SelectableGameObject> generatedObjects; // Reference to the list in the GenerateObjectInFront component
+    private List<CustomSelectableGameObject> generatedObjects; 
+    public Dictionary<GameObject, (Transform magicWindow, Transform backPlate)> cachedTransforms;
 
-    public string objectSpawnerName = "ObjectSpawner"; // Name of the ObjectSpawner GameObject in the hierarchy
-    public string magicWindowName = "UX.Slate.MagicWindow"; // Name of the child GameObject to act on
-    public string scaleUpXButtonName = "Scale Up X"; // Name of the Scale X button
-    public string scaleUpYButtonName = "Scale Up Y"; // Name of the Scale Y button
-    public string scaleDownXButtonName = "Scale Down X"; // Name of the Scale Down X button
-    public string scaleDownYButtonName = "Scale Down Y"; // Name of the Scale Down Y button
-    public string toggleFreezeButtonName = "PushToSet"; // Name of the Toggle Freeze button
+    // We keep per-object scaling states, so each MagicWindow can be manipulated independently
+    private Dictionary<GameObject, ScalingState> objectScalingStates = new Dictionary<GameObject, ScalingState>();
+    // If you want to freeze each object independently, store that state here
+    public Dictionary<GameObject, bool> objectFrozenStates = new Dictionary<GameObject, bool>();
 
-    public float scaleSpeed = 0.1f; // Adjust the speed of scaling
-    private bool isScalingX = false;
-    private bool isScalingY = false;
-    private bool isScalingDownX = false;
-    private bool isScalingDownY = false;
-    private bool isFrozen = false;
-    private ObjectManipulator objectManipulator;
+    public string objectSpawnerName = "ObjectSpawner";           // Name of the ObjectSpawner GameObject in the hierarchy
+    public string magicWindowName   = "UX.Slate.MagicWindow";    // Name of the child GameObject to act on
+
+    // Speeds/scales
+    public float tiltSpeed      = 4f;    // Speed for tilting
+    public float rotationSpeed  = 4f;    // Speed for rotation
+    public float scaleSpeed     = 0.1f;  // Speed for scaling
+
+    // One for each MagicWindow’s initial scale
+    private Dictionary<GameObject, Vector3> magicWindowOriginalScales = new Dictionary<GameObject, Vector3>();
+
+    // One for each BackPlate’s initial scale
+    private Dictionary<GameObject, Vector3> backPlateOriginalScales   = new Dictionary<GameObject, Vector3>();
+
+    // **Define the list to track frozen objects**
+    private List<GameObject> objectsFrozenByDisableAllPanels = new List<GameObject>();
+
+    public enum ScalingState
+    {
+        None,
+        ScalingUpX,
+        ScalingUpY,
+        ScalingDownX,
+        ScalingDownY,
+        TiltingUp,
+        TiltingDown,
+        RotatingClockwise,
+        RotatingCounterClockwise
+    }
 
     void Start()
     {
-        // Find the ObjectSpawner GameObject in the hierarchy
+        // 1. Find the GenerateObjectInFront script and subscribe to new-object creation
         GameObject objectSpawner = GameObject.Find(objectSpawnerName);
         if (objectSpawner != null)
         {
@@ -33,336 +53,384 @@ public class ScalingScript : MonoBehaviour
             if (generateObjectInFront != null)
             {
                 generatedObjects = generateObjectInFront.generatedObjects;
+                generateObjectInFront.OnObjectGenerated += AddToCache; // Subscribe
             }
             else
             {
-                Debug.LogError("GenerateObjectInFront component not found on ObjectSpawner GameObject.");
+                Debug.LogError($"GenerateObjectInFront component not found on {objectSpawnerName}.");
             }
         }
         else
         {
-            Debug.LogError("ObjectSpawner GameObject not found in the hierarchy.");
+            Debug.LogError($"ObjectSpawner named '{objectSpawnerName}' not found in the scene.");
         }
 
-        // Find and assign buttons dynamically
-        PressableButton scaleUpXButton = FindButtonByName(transform, scaleUpXButtonName);
-        PressableButton scaleUpYButton = FindButtonByName(transform, scaleUpYButtonName);
-        PressableButton scaleDownXButton = FindButtonByName(transform, scaleDownXButtonName);
-        PressableButton scaleDownYButton = FindButtonByName(transform, scaleDownYButtonName);
-        PressableButton toggleFreezeButton = FindButtonByName(transform, toggleFreezeButtonName);
+        // 2. Cache transforms for already existing objects
+        CacheTransforms();
 
-        if (scaleUpXButton != null)
-        {
-            scaleUpXButton.OnClicked.AddListener(() => ToggleScaleX());
-            Debug.Log("Scale Up X Button assigned.");
-        }
-        else
-        {
-            Debug.LogError("Scale Up X Button not found.");
-        }
-
-        if (scaleUpYButton != null)
-        {
-            scaleUpYButton.OnClicked.AddListener(() => ToggleScaleY());
-            Debug.Log("Scale Up Y Button assigned.");
-        }
-        else
-        {
-            Debug.LogError("Scale Up Y Button not found.");
-        }
-
-        if (scaleDownXButton != null)
-        {
-            scaleDownXButton.OnClicked.AddListener(() => ToggleScaleDownX());
-            Debug.Log("Scale Down X Button assigned.");
-        }
-        else
-        {
-            Debug.LogError("Scale Down X Button not found.");
-        }
-
-        if (scaleDownYButton != null)
-        {
-            scaleDownYButton.OnClicked.AddListener(() => ToggleScaleDownY());
-            Debug.Log("Scale Down Y Button assigned.");
-        }
-        else
-        {
-            Debug.LogError("Scale Down Y Button not found.");
-        }
-
-        if (toggleFreezeButton != null)
-        {
-            //toggleFreezeButton.OnClicked.AddListener(() => ToggleFreeze());
-            Debug.Log("Toggle Freeze Button assigned.");
-        }
-        else
-        {
-            Debug.LogError("Toggle Freeze Button not found.");
-        }
-
-        UpdateSelectedObjectManipulator();
+        // 3. Hook up each existing object’s panel to this script
+        HookUpExistingPanels();
     }
 
+    /// <summary>
+    /// For every object in generatedObjects, we store references to its MagicWindow and BackPlate,
+    /// and also set up default states in the dictionaries.
+    /// </summary>
+    private void CacheTransforms()
+    {
+        cachedTransforms = new Dictionary<GameObject, (Transform magicWindow, Transform backPlate)>();
+
+        foreach (var item in generatedObjects)
+        {
+            if (item.gameObject == null) 
+                continue;
+
+            var magicWindow = item.gameObject.transform.Find(magicWindowName);
+            var backPlate   = magicWindow?.Find("BackPlate");
+
+            if (magicWindow == null)
+            {
+                Debug.LogWarning($"MagicWindow '{magicWindowName}' not found in '{item.gameObject.name}'.");
+                continue;
+            }
+
+            // Remember the transforms
+            cachedTransforms[item.gameObject] = (magicWindow, backPlate);
+
+            // Default states
+            if (!objectScalingStates.ContainsKey(item.gameObject))
+                objectScalingStates[item.gameObject] = ScalingState.None;
+
+            if (!objectFrozenStates.ContainsKey(item.gameObject))
+                objectFrozenStates[item.gameObject] = false;
+
+            // Store per-object initial scales (if valid)
+            if (magicWindow != null && backPlate != null)
+            {
+                // Save the initial localScales for this pair
+                magicWindowOriginalScales[item.gameObject] = magicWindow.localScale;
+                backPlateOriginalScales[item.gameObject]   = backPlate.localScale;
+            }
+        }
+    }
+
+    private void AddToCache(GameObject newObject)
+    {
+        var magicWindow = newObject.transform.Find(magicWindowName);
+        var backPlate   = magicWindow?.Find("BackPlate");
+
+        if (magicWindow != null && backPlate != null)
+        {
+            cachedTransforms[newObject] = (magicWindow, backPlate);
+
+            // Store their original scales
+            magicWindowOriginalScales[newObject] = magicWindow.localScale;
+            backPlateOriginalScales[newObject]   = backPlate.localScale;
+        }
+        else
+        {
+            Debug.LogError($"Failed to find '{magicWindowName}' or 'BackPlate' in '{newObject.name}'.");
+            return;
+        }
+
+        // Initialize default states
+        if (!objectScalingStates.ContainsKey(newObject))
+            objectScalingStates[newObject] = ScalingState.None;
+
+        if (!objectFrozenStates.ContainsKey(newObject))
+            objectFrozenStates[newObject] = false;
+
+        // Hook up the panel’s buttons, etc.
+        var cso = generatedObjects.Find(x => x.gameObject == newObject);
+        if (cso != null && cso.panelInstance != null)
+        {
+            HookUpPanelButtons(newObject, cso.panelInstance);
+        }
+    }
+
+    /// <summary>
+    /// Because some objects might have been pre-spawned in the scene,
+    /// we also try hooking up each object’s panel references (if any).
+    /// </summary>
+    private void HookUpExistingPanels()
+    {
+        foreach (var item in generatedObjects)
+        {
+            if (item.panelInstance != null)
+            {
+                HookUpPanelButtons(item.gameObject, item.panelInstance);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Looks up the PressableButtons in the panel and wires them up to methods that act on 'thisObject'.
+    /// </summary>
+    private void HookUpPanelButtons(GameObject thisObject, GameObject panel)
+    {
+        // "PushToSet"
+        var pushToSetBtn = panel.transform.Find("PushToSet")?.GetComponent<PressableButton>();
+        if (pushToSetBtn != null)
+            pushToSetBtn.OnClicked.AddListener(() => ToggleFreezeForObject(thisObject));
+
+        // "Scale Up Y"
+        var scaleUpYBtn = panel.transform.Find("Scale Up Y")?.GetComponent<PressableButton>();
+        if (scaleUpYBtn != null)
+            scaleUpYBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.ScalingUpY));
+
+        // "Scale Down Y"
+        var scaleDownYBtn = panel.transform.Find("Scale Down Y")?.GetComponent<PressableButton>();
+        if (scaleDownYBtn != null)
+            scaleDownYBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.ScalingDownY));
+
+        // "Tilt Down"
+        var tiltDownBtn = panel.transform.Find("Tilt Down")?.GetComponent<PressableButton>();
+        if (tiltDownBtn != null)
+            tiltDownBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.TiltingDown));
+
+        // "Tilt Up"
+        var tiltUpBtn = panel.transform.Find("Tilt Up")?.GetComponent<PressableButton>();
+        if (tiltUpBtn != null)
+            tiltUpBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.TiltingUp));
+
+        // "Scale Up X"
+        var scaleUpXBtn = panel.transform.Find("Scale Up X")?.GetComponent<PressableButton>();
+        if (scaleUpXBtn != null)
+            scaleUpXBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.ScalingUpX));
+
+        // "Scale Down X"
+        var scaleDownXBtn = panel.transform.Find("Scale Down X")?.GetComponent<PressableButton>();
+        if (scaleDownXBtn != null)
+            scaleDownXBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.ScalingDownX));
+
+        // "Rotate Counterclockwise" (fixed typo)
+        var rotateCCWBtn = panel.transform.Find("Rotate Counterclockwise")?.GetComponent<PressableButton>();
+        if (rotateCCWBtn != null)
+            rotateCCWBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.RotatingCounterClockwise));
+
+        // "Rotate Clockwise"
+        var rotateCWBtn = panel.transform.Find("Rotate Clockwise")?.GetComponent<PressableButton>();
+        if (rotateCWBtn != null)
+            rotateCWBtn.OnClicked.AddListener(() => SetScalingStateForObject(thisObject, ScalingState.RotatingClockwise));
+
+        // **New: "Delete" Button**
+        var deleteBtn = panel.transform.Find("Delete")?.GetComponent<PressableButton>();
+        if (deleteBtn != null)
+            deleteBtn.OnClicked.AddListener(() => DeleteObject(thisObject));
+        else
+            Debug.LogWarning($"Delete button not found in panel '{panel.name}'. Ensure the button is named 'Delete' and has a PressableButton component.");
+    }
+
+    /// <summary>
+    /// Sets (or toggles off) the scaling state for a particular object. 
+    /// If you click the same button again, it reverts to None.
+    /// </summary>
+    private void SetScalingStateForObject(GameObject obj, ScalingState state)
+    {
+        if (!objectScalingStates.ContainsKey(obj)) return;
+        // If user clicks the same button twice, toggle it off
+        objectScalingStates[obj] = (objectScalingStates[obj] == state) ? ScalingState.None : state;
+    }
+
+    /// <summary>
+    /// Toggles "frozen" state for this particular object, disabling object manipulations if frozen,
+    /// and deactivating the ObjectManipulator of the parent object of UX.Slate.MagicWindow.
+    /// </summary>
+    public void ToggleFreezeForObject(GameObject obj)
+    {
+        if (!objectFrozenStates.ContainsKey(obj))
+            objectFrozenStates[obj] = false;
+
+        objectFrozenStates[obj] = !objectFrozenStates[obj];
+        bool isFrozen = objectFrozenStates[obj];
+
+        // If we previously cached transforms:
+        if (cachedTransforms.TryGetValue(obj, out var transforms))
+        {
+            var (magicWindow, backPlate) = transforms;
+
+            if (magicWindow != null)
+            {
+                // Deactivate the ObjectManipulator of the parent of UX.Slate.MagicWindow
+                var parentObject = magicWindow.parent;
+                if (parentObject != null)
+                {
+                    var objectManipulator = parentObject.GetComponent<ObjectManipulator>();
+                    if (objectManipulator != null)
+                    {
+                        objectManipulator.enabled = !isFrozen;
+                    }
+                }
+            }
+
+            // Optionally hide/show the backPlate
+            if (backPlate != null)
+            {
+                backPlate.gameObject.SetActive(!isFrozen);
+            }
+        }
+
+        Debug.Log($"{obj.name} is now " + (isFrozen ? "frozen." : "unfrozen."));
+    }
+
+    /// <summary>
+    /// Deletes a MagicWindow and its associated Panel, removing them from all lists and dictionaries.
+    /// </summary>
+    public void DeleteObject(GameObject obj)
+    {
+        if (obj == null)
+        {
+            Debug.LogError("DeleteObject called with a null GameObject.");
+            return;
+        }
+
+        // Find the CustomSelectableGameObject where obj is either the magicWindow or the panel.
+        CustomSelectableGameObject cso = generatedObjects.Find(x => x.gameObject == obj || x.panelInstance == obj);
+
+        if (cso != null)
+        {
+            // Remove from generatedObjects list
+            generatedObjects.Remove(cso);
+
+            // Remove from cachedTransforms
+            if (cachedTransforms.ContainsKey(cso.gameObject))
+                cachedTransforms.Remove(cso.gameObject);
+
+            // Remove from scaling and frozen states
+            if (objectScalingStates.ContainsKey(cso.gameObject))
+                objectScalingStates.Remove(cso.gameObject);
+
+            if (objectFrozenStates.ContainsKey(cso.gameObject))
+                objectFrozenStates.Remove(cso.gameObject);
+
+            if (magicWindowOriginalScales.ContainsKey(cso.gameObject))
+                magicWindowOriginalScales.Remove(cso.gameObject);
+
+            if (backPlateOriginalScales.ContainsKey(cso.gameObject))
+                backPlateOriginalScales.Remove(cso.gameObject);
+
+            // Remove from objectsFrozenByDisableAllPanels if present
+            if (objectsFrozenByDisableAllPanels.Contains(cso.gameObject))
+                objectsFrozenByDisableAllPanels.Remove(cso.gameObject);
+
+            // Destroy the GameObjects
+            if (cso.gameObject != null)
+            {
+                Destroy(cso.gameObject);
+                Debug.Log($"Deleted MagicWindow '{cso.gameObject.name}'.");
+            }
+
+            if (cso.panelInstance != null)
+            {
+                Destroy(cso.panelInstance);
+                Debug.Log($"Deleted Panel '{cso.panelInstance.name}'.");
+            }
+        }
+        else
+        {
+            Debug.LogError($"DeleteObject: Could not find the object to delete for '{obj.name}'.");
+        }
+    }
+
+    /// <summary>
+    /// Main update loop: we iterate all objects and see if they have a non-None state + are not frozen.
+    /// Then we apply the corresponding scale/tilt/rotate operation.
+    /// </summary>
     void Update()
     {
-        if (isScalingX)
-        {
-            ScaleUpX();
-        }
-
-        if (isScalingY)
-        {
-            ScaleUpY();
-        }
-
-        if (isScalingDownX)
-        {
-            ScaleDownX();
-        }
-
-        if (isScalingDownY)
-        {
-            ScaleDownY();
-        }
-    }
-
-    private PressableButton FindButtonByName(Transform panelTransform, string buttonName)
-    {
-        Transform buttonTransform = panelTransform.Find(buttonName);
-        if (buttonTransform != null)
-        {
-            return buttonTransform.GetComponent<PressableButton>();
-        }
-        return null;
-    }
-
-    private void UpdateSelectedObjectManipulator()
-    {
-        if (generatedObjects == null)
-        {
-            Debug.LogError("Generated objects list is null.");
-            return;
-        }
+        if (generatedObjects == null) return;
 
         foreach (var item in generatedObjects)
         {
-            if (item.selected)
+            GameObject obj = item.gameObject;
+            if (obj == null) 
+                continue;
+
+            // If this object is frozen, skip
+            bool isFrozen = objectFrozenStates.ContainsKey(obj) && objectFrozenStates[obj];
+            if (isFrozen) 
+                continue;
+
+            // If we have a scaling state for the object, act on it
+            if (objectScalingStates.TryGetValue(obj, out ScalingState state))
             {
-                if (item.gameObject != null)
+                switch (state)
                 {
-                    Transform magicWindowTransform = item.gameObject.transform.Find(magicWindowName);
-                    if (magicWindowTransform != null)
-                    {
-                        objectManipulator = magicWindowTransform.GetComponent<ObjectManipulator>();
-                        if (objectManipulator == null)
-                        {
-                            Debug.LogError("ObjectManipulator component not found on selected object.");
-                        }
-                        else
-                        {
-                            Debug.Log("ObjectManipulator component found on selected object.");
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogError($"Child GameObject '{magicWindowName}' not found on selected object.");
-                    }
+                    case ScalingState.ScalingUpX:
+                        AdjustScale(obj, new Vector3(scaleSpeed * Time.deltaTime, 0, 0));
+                        break;
+                    case ScalingState.ScalingUpY:
+                        AdjustScale(obj, new Vector3(0, scaleSpeed * Time.deltaTime, 0));
+                        break;
+                    case ScalingState.ScalingDownX:
+                        AdjustScale(obj, new Vector3(-scaleSpeed * Time.deltaTime, 0, 0));
+                        break;
+                    case ScalingState.ScalingDownY:
+                        AdjustScale(obj, new Vector3(0, -scaleSpeed * Time.deltaTime, 0));
+                        break;
+                    case ScalingState.TiltingUp:
+                        AdjustTilt(obj, Vector3.right * tiltSpeed * Time.deltaTime);  // tilt up
+                        break;
+                    case ScalingState.TiltingDown:
+                        AdjustTilt(obj, Vector3.left * tiltSpeed * Time.deltaTime);   // tilt down
+                        break;
+                    case ScalingState.RotatingClockwise:
+                        AdjustRotation(obj, Vector3.up * rotationSpeed * Time.deltaTime); // rotate cw
+                        break;
+                    case ScalingState.RotatingCounterClockwise:
+                        AdjustRotation(obj, Vector3.down * rotationSpeed * Time.deltaTime);// rotate ccw
+                        break;
                 }
-                return;
             }
         }
-        Debug.LogError("No selected object found.");
     }
 
-    public void ToggleScaleX()
+    private void AdjustScale(GameObject obj, Vector3 scaleChange)
     {
-        if (isFrozen)
-        {
-            Debug.Log("Panel is frozen. Scaling is disabled.");
+        if (!cachedTransforms.TryGetValue(obj, out var transforms))
             return;
-        }
 
-        isScalingX = !isScalingX;
-        if (isScalingX)
-        {
-            isScalingY = false; // Ensure only one scaling operation is active
-            isScalingDownX = false;
-            isScalingDownY = false;
-            Debug.Log("Started scaling X.");
-        }
-        else
-        {
-            Debug.Log("Stopped scaling X.");
-        }
-    }
-
-    public void ToggleScaleY()
-    {
-        if (isFrozen)
-        {
-            Debug.Log("Panel is frozen. Scaling is disabled.");
+        var (magicWindow, backPlate) = transforms;
+        if (magicWindow == null || backPlate == null)
             return;
-        }
 
-        isScalingY = !isScalingY;
-        if (isScalingY)
-        {
-            isScalingX = false; // Ensure only one scaling operation is active
-            isScalingDownX = false;
-            isScalingDownY = false;
-            Debug.Log("Started scaling Y.");
-        }
-        else
-        {
-            Debug.Log("Stopped scaling Y.");
-        }
+        // 1) Scale the MagicWindow
+        magicWindow.localScale += scaleChange;
+        Vector3 mwScale = magicWindow.localScale;
+
+        // Optionally, enforce minimum and maximum scales
+        // Example:
+        // magicWindow.localScale = Vector3.Max(magicWindow.localScale, Vector3.one * 0.5f);
+        // magicWindow.localScale = Vector3.Min(magicWindow.localScale, Vector3.one * 2f);
     }
 
-    public void ToggleScaleDownX()
+    private void AdjustTilt(GameObject obj, Vector3 tiltChange)
     {
-        if (isFrozen)
-        {
-            Debug.Log("Panel is frozen. Scaling is disabled.");
+        if (!cachedTransforms.TryGetValue(obj, out var transforms))
             return;
-        }
 
-        isScalingDownX = !isScalingDownX;
-        if (isScalingDownX)
+        var (magicWindow, backPlate) = transforms;
+        if (magicWindow == null) return;
+
+        // Tilt the MagicWindow in its own local space
+        magicWindow.Rotate(tiltChange, Space.Self);
+
+        // Match backPlate’s rotation, preserve scale
+        if (backPlate != null)
         {
-            isScalingX = false; // Ensure only one scaling operation is active
-            isScalingY = false;
-            isScalingDownY = false;
-            Debug.Log("Started scaling down X.");
-        }
-        else
-        {
-            Debug.Log("Stopped scaling down X.");
+            backPlate.rotation = magicWindow.rotation;
         }
     }
 
-    public void ToggleScaleDownY()
+    private void AdjustRotation(GameObject obj, Vector3 rotationChange)
     {
-        if (isFrozen)
-        {
-            Debug.Log("Panel is frozen. Scaling is disabled.");
+        if (!cachedTransforms.TryGetValue(obj, out var transforms))
             return;
-        }
 
-        isScalingDownY = !isScalingDownY;
-        if (isScalingDownY)
-        {
-            isScalingX = false; // Ensure only one scaling operation is active
-            isScalingY = false;
-            isScalingDownX = false;
-            Debug.Log("Started scaling down Y.");
-        }
-        else
-        {
-            Debug.Log("Stopped scaling down Y.");
-        }
-    }
+        var (magicWindow, backPlate) = transforms;
+        if (magicWindow == null) return;
 
-    public void ToggleFreeze()
-    {
-        isFrozen = !isFrozen;
-        if (isFrozen)
-        {
-            // Disable manipulation and stop any ongoing scaling
-            if (objectManipulator != null)
-            {
-                objectManipulator.enabled = false;
-            }
-            isScalingX = false;
-            isScalingY = false;
-            isScalingDownX = false;
-            isScalingDownY = false;
-            Debug.Log("Panel frozen.");
-        }
-        else
-        {
-            // Enable manipulation
-            if (objectManipulator != null)
-            {
-                objectManipulator.enabled = true;
-            }
-            Debug.Log("Panel unfrozen.");
-        }
-    }
-
-    public void ScaleUpX()
-    {
-        foreach (var item in generatedObjects)
-        {
-            if (item.selected && item.gameObject != null)
-            {
-                Transform magicWindowTransform = item.gameObject.transform.Find(magicWindowName);
-                if (magicWindowTransform != null)
-                {
-                    float scaleFactor = scaleSpeed * Time.deltaTime;
-                    Vector3 scaleChange = new Vector3(scaleFactor, 0, 0);
-                    magicWindowTransform.localScale += scaleChange;
-                    Debug.Log("Scaling X by " + scaleFactor);
-                }
-                return;
-            }
-        }
-    }
-
-    public void ScaleUpY()
-    {
-        foreach (var item in generatedObjects)
-        {
-            if (item.selected && item.gameObject != null)
-            {
-                Transform magicWindowTransform = item.gameObject.transform.Find(magicWindowName);
-                if (magicWindowTransform != null)
-                {
-                    float scaleFactor = scaleSpeed * Time.deltaTime;
-                    Vector3 scaleChange = new Vector3(0, scaleFactor, 0);
-                    magicWindowTransform.localScale += scaleChange;
-                    Debug.Log("Scaling Y by " + scaleFactor);
-                }
-                return;
-            }
-        }
-    }
-
-    public void ScaleDownX()
-    {
-        foreach (var item in generatedObjects)
-        {
-            if (item.selected && item.gameObject != null)
-            {
-                Transform magicWindowTransform = item.gameObject.transform.Find(magicWindowName);
-                if (magicWindowTransform != null)
-                {
-                    float scaleFactor = scaleSpeed * Time.deltaTime;
-                    Vector3 scaleChange = new Vector3(-scaleFactor, 0, 0);
-                    magicWindowTransform.localScale += scaleChange;
-                    Debug.Log("Scaling down X by " + scaleFactor);
-                }
-                return;
-            }
-        }
-    }
-
-    public void ScaleDownY()
-    {
-        foreach (var item in generatedObjects)
-        {
-            if (item.selected && item.gameObject != null)
-            {
-                Transform magicWindowTransform = item.gameObject.transform.Find(magicWindowName);
-                if (magicWindowTransform != null)
-                {
-                    float scaleFactor = scaleSpeed * Time.deltaTime;
-                    Vector3 scaleChange = new Vector3(0, -scaleFactor, 0);
-                    magicWindowTransform.localScale += scaleChange;
-                    Debug.Log("Scaling down Y by " + scaleFactor);
-                }
-                return;
-            }
-        }
+        // Rotate in world space (if you prefer local, change to Space.Self)
+        magicWindow.Rotate(rotationChange, Space.World);
     }
 }

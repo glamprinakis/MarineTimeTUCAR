@@ -12,8 +12,17 @@ public enum POIType
     OtherShip,
     MyRoutePoint,
     OtherRoutePoint,
-    General
+    General,
+    ShipPassingBy,
+    RedLighthouse,
+    GreenLighthouse,
+    Reef,
+    Wreck,
+    UnknownDanger,
+    MooringBuoy,
+    SpecialPurposeBuoy
 }
+
 
 [System.Serializable]
 public class GPSCoordinate
@@ -56,12 +65,32 @@ public class GPSMulti : MonoBehaviour
     [Header("Area Coordinates")]
     public List<string> areaCoordinates;
 
+    [Header("Area Material")]
+    public Material areaMaterial; // Material to be provided through the Inspector
+
+    public Material areaMapMaterial;
+
+    // Horizon calibration data
+    private Vector3 horizonOrigin; // The point on the horizon
+    private Vector3 horizonNormal; // The normal vector of the horizon plane
+    private bool isHorizonCalibrated = false;
+
     [Header("POI Prefabs")]
     public GameObject CollisionPointPrefab;
     public GameObject ShipPrefab;
     public GameObject MyRoutePointPrefab;
     public GameObject OtherRoutePointPrefab;
     public GameObject GeneralPrefab;
+    public GameObject ShipPassingByPrefab;
+    public GameObject RedLighthousePrefab;
+    public GameObject GreenLighthousePrefab;
+    public GameObject ReefPrefab;
+    public GameObject WreckPrefab;
+    public GameObject UnknownDangerPrefab;
+    public GameObject MooringBuoyPrefab;
+    public GameObject SpecialPurposeBuoyPrefab;
+
+    
 
     [Header("Map Prefabs")]
     public GameObject CollisionPointMapPrefab;
@@ -70,6 +99,14 @@ public class GPSMulti : MonoBehaviour
     public GameObject MyRoutePointMapPreafab;
     public GameObject OtherRoutePointMapPrefab;
     public GameObject generalPointMapPrefab;
+    public GameObject ShipPassingByMapPrefab;
+    public GameObject RedLighthouseMapPrefab;
+    public GameObject GreenLighthouseMapPrefab;
+    public GameObject ReefMapPrefab;
+    public GameObject WreckMapPrefab;
+    public GameObject UnknownDangerMapPrefab;
+    public GameObject MooringBuoyMapPrefab;
+    public GameObject SpecialPurposeBuoyMapPrefab;
 
 
 
@@ -84,29 +121,53 @@ public class GPSMulti : MonoBehaviour
 
     public Dictionary<POIType, List<GameObject>> spawnedObjects = new Dictionary<POIType, List<GameObject>>();
 
-    private void Awake()
+private void Awake()
+{
+    poiPrefabs = new Dictionary<POIType, GameObject>
     {
-        poiPrefabs = new Dictionary<POIType, GameObject>
-        {
-            { POIType.CollisionPoint, CollisionPointPrefab },
-            { POIType.Ship, ShipPrefab },
-            { POIType.OtherShip, ShipPrefab },
-            { POIType.MyRoutePoint, MyRoutePointPrefab },
-            { POIType.OtherRoutePoint, OtherRoutePointPrefab },
-            { POIType.General, GeneralPrefab }
-        };
-
-        mapPrefabs = new Dictionary<POIType, GameObject>
-        {
-            { POIType.CollisionPoint, CollisionPointMapPrefab },
-            { POIType.Ship, MyShipMapPrefab },
-            { POIType.OtherShip, OtherShipMapPrefab },
-            { POIType.MyRoutePoint, MyRoutePointMapPreafab },
-            { POIType.OtherRoutePoint, OtherRoutePointMapPrefab },
-            { POIType.General, generalPointMapPrefab }
+        { POIType.CollisionPoint, CollisionPointPrefab },
+        { POIType.Ship, ShipPrefab },
+        { POIType.OtherShip, ShipPrefab },
+        { POIType.MyRoutePoint, MyRoutePointPrefab },
+        { POIType.OtherRoutePoint, OtherRoutePointPrefab },
+        { POIType.General, GeneralPrefab },
+        { POIType.ShipPassingBy, ShipPassingByPrefab },
+        { POIType.RedLighthouse, RedLighthousePrefab },
+        { POIType.GreenLighthouse, GreenLighthousePrefab },
+        { POIType.Reef, ReefPrefab },
+        { POIType.Wreck, WreckPrefab },
+        { POIType.UnknownDanger, UnknownDangerPrefab },
+        { POIType.MooringBuoy, MooringBuoyPrefab },
+        { POIType.SpecialPurposeBuoy, SpecialPurposeBuoyPrefab }
     };
-    }
 
+    mapPrefabs = new Dictionary<POIType, GameObject>
+    {
+        { POIType.CollisionPoint, CollisionPointMapPrefab },
+        { POIType.Ship, MyShipMapPrefab },
+        { POIType.OtherShip, OtherShipMapPrefab },
+        { POIType.MyRoutePoint, MyRoutePointMapPreafab },
+        { POIType.OtherRoutePoint, OtherRoutePointMapPrefab },
+        { POIType.General, generalPointMapPrefab },
+        { POIType.ShipPassingBy, ShipPassingByMapPrefab },
+        { POIType.RedLighthouse, RedLighthouseMapPrefab },
+        { POIType.GreenLighthouse, GreenLighthouseMapPrefab },
+        { POIType.Reef, ReefMapPrefab },
+        { POIType.Wreck, WreckMapPrefab },
+        { POIType.UnknownDanger, UnknownDangerMapPrefab },
+        { POIType.MooringBuoy, MooringBuoyMapPrefab },
+        { POIType.SpecialPurposeBuoy, SpecialPurposeBuoyMapPrefab }
+    };
+
+    // Initialize the spawnedObjects dictionary with empty lists for all POI types
+    foreach (POIType poiType in Enum.GetValues(typeof(POIType)))
+    {
+        if (!spawnedObjects.ContainsKey(poiType))
+        {
+            spawnedObjects[poiType] = new List<GameObject>();
+        }
+    }
+}
 
 
     [Header("Line Renderer")]
@@ -126,9 +187,7 @@ public class GPSMulti : MonoBehaviour
     public float myRouteUncertainYOffset = -0.1f;
     public float otherRouteUncertainYOffset = -0.1f;
 
-
-
-
+    public GameObject HorizonLine;
 
     private void Start()
     {
@@ -136,7 +195,11 @@ public class GPSMulti : MonoBehaviour
         foreach (string area in areaCoordinates)
         {
             List<GPSCoordinate> myAreaCoordinates = ParseCoordinates(area);
-            CreateArea(myAreaCoordinates);  // Pass the list to CreateArea
+            // Create the real-world area in the scene
+            CreateArea(myAreaCoordinates);
+
+            // Create the equivalent polygon on the map
+            CreateAreaOnMap(myAreaCoordinates);
         }
     }
 
@@ -376,13 +439,21 @@ public class GPSMulti : MonoBehaviour
 
 
     }
-
+    
 
     public GameObject SpawnObjectAtLocation(GPSCoordinate coord)
     {
         Vector3 position = CalculateObjectLocalPosition(coord.Latitude, coord.Longitude);
-        GameObject preafab = poiPrefabs[coord.POIType];
-        GameObject createdObj = Instantiate(preafab, position, Quaternion.identity);
+
+        // Apply horizon projection only for specific POI types
+        if (isHorizonCalibrated && ShouldProjectToHorizon(coord.POIType))
+        {
+            position = ProjectOntoHorizon(position);
+        }
+
+        GameObject prefab = poiPrefabs[coord.POIType];
+        GameObject createdObj = Instantiate(prefab, position, Quaternion.identity);
+
         if (!spawnedObjects.ContainsKey(coord.POIType))
         {
             spawnedObjects[coord.POIType] = new List<GameObject>();
@@ -391,6 +462,35 @@ public class GPSMulti : MonoBehaviour
         SpawnPOIForMap(coord);
         return createdObj;
     }
+
+    private bool ShouldProjectToHorizon(POIType poiType)
+    {
+        return poiType == POIType.CollisionPoint ||
+               poiType == POIType.OtherShip ||
+               poiType == POIType.General ||
+               poiType == POIType.ShipPassingBy ||
+               poiType == POIType.RedLighthouse ||
+               poiType == POIType.GreenLighthouse ||
+               poiType == POIType.Reef ||
+               poiType == POIType.Wreck ||
+               poiType == POIType.UnknownDanger ||
+               poiType == POIType.MooringBuoy ||
+               poiType == POIType.SpecialPurposeBuoy;
+    }
+
+    private Vector3 ProjectOntoHorizon(Vector3 point)
+    {
+        if (!isHorizonCalibrated) return point;
+
+        Vector3 toPoint = point - horizonOrigin;
+        float distance = Vector3.Dot(toPoint, horizonNormal);
+
+        Vector3 projectedPoint = point - distance * horizonNormal;
+        Debug.Log($"Point {point} projected to {projectedPoint} on the horizon.");
+
+        return point - distance * horizonNormal;
+    }
+
 
     Vector3 CalculateObjectLocalPosition(double latitude, double longitude)
     {
@@ -444,8 +544,16 @@ public class GPSMulti : MonoBehaviour
         meshCollider.convex = false;
         meshCollider.isTrigger = false;
 
-        meshRenderer.material = new Material(Shader.Find("Standard"));
-        meshRenderer.material.color = Color.white;
+        if (areaMaterial != null)
+        {
+            meshRenderer.material = areaMaterial; // Use the material provided through the Inspector
+        }
+        else
+        {
+            Debug.LogWarning("Area material not assigned. Using default white material.");
+            meshRenderer.material = new Material(Shader.Find("Standard"));
+            meshRenderer.material.color = Color.white;
+        }
 
         AreaScript areaScript = areaGameObject.AddComponent<AreaScript>();
 
@@ -468,6 +576,59 @@ public class GPSMulti : MonoBehaviour
         meshFilter.mesh = mesh;
         meshCollider.sharedMesh = mesh;
     }
+    public void CreateAreaOnMap(List<GPSCoordinate> areaCoords)
+    {
+        // Make sure we have a MapAndPlayerManager
+        MapAndPlayerManager mapManager = mapGameObject.GetComponentInParent<MapAndPlayerManager>();
+        if (mapManager == null)
+        {
+            Debug.LogError("MapAndPlayerManager not found in parent. Cannot register area on map.");
+            return;
+        }
+
+        // 1. Create a new GameObject under mapGameObject
+        GameObject areaMapObj = new GameObject("DynamicAreaMap");
+        // Put it in the root (or a neutral empty parent that isn’t rotated):
+        areaMapObj.transform.SetParent(mapGameObject.transform, false);
+
+        // 2. Add MeshFilter and MeshRenderer
+        MeshFilter meshFilter = areaMapObj.AddComponent<MeshFilter>();
+        MeshRenderer meshRenderer = areaMapObj.AddComponent<MeshRenderer>();
+
+        // 3. Assign your map-specific material
+        if (areaMapMaterial != null)
+        {
+            // If you want the same as the real world
+            meshRenderer.material = areaMapMaterial; 
+        }
+        else if (areaMapMaterial != null)
+        {
+            // Or if you want a separate material
+            meshRenderer.material = areaMapMaterial;
+        }
+        else
+        {
+            // Fallback
+            meshRenderer.material = new Material(Shader.Find("Standard"));
+            meshRenderer.material.color = Color.yellow;
+        }
+
+        // 4. Convert the GPSCoordinates into lat/lon pairs
+        List<Vector2d> latLonList = new List<Vector2d>();
+        foreach (var coord in areaCoords)
+        {
+            latLonList.Add(new Vector2d(coord.Latitude, coord.Longitude));
+        }
+
+        // 5. Store this new object + lat/lon in the map manager
+        mapManager.spawnedAreas.Add(areaMapObj, latLonList);
+
+        // 6. Immediately update so we can see it if the map is active
+        mapManager.UpdateSpawnedAreas();
+    }
+
+
+
 
     // Simple triangulation function for convex shapes. For complex shapes, use a proper triangulation library.
     private int[] Triangulate(int vertexCount)
@@ -502,4 +663,311 @@ public class GPSMulti : MonoBehaviour
 
         return coordinatesList;
     }
+
+    public void DeactivatePOIsByType(POIType poiType)
+    {
+        if (spawnedObjects.ContainsKey(poiType))
+        {
+            foreach (GameObject poi in spawnedObjects[poiType])
+            {
+                if (poi != null)
+                {
+                    poi.SetActive(false);
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"No POIs found for type {poiType}.");
+        }
+    }
+
+    // Function to activate all POIs of a specific type
+    public void ActivatePOIsByType(POIType poiType)
+    {
+        if (spawnedObjects.ContainsKey(poiType))
+        {
+            foreach (GameObject poi in spawnedObjects[poiType])
+            {
+                if (poi != null)
+                {
+                    poi.SetActive(true);
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"No POIs found for type {poiType}.");
+        }
+    }
+     // Method to handle toggle state changes for POIs
+    public void TogglePOIType(bool isActive, POIType poiType)
+    {
+        if (isActive)
+        {
+            ActivatePOIsByType(poiType);
+        }
+        else
+        {
+            DeactivatePOIsByType(poiType);
+        }
+    }
+
+    // individual toggle methods for specific POI types
+    public void ToggleCollisionPoints(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.CollisionPoint);
+    }
+
+    public void ToggleGreenLighthouse(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.GreenLighthouse);
+    }
+
+    public void ToggleRedLighthouse(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.RedLighthouse);
+    }
+
+    public void ToggleUnknownDanger(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.UnknownDanger);
+    }
+
+    public void ToggleMooringBuoy(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.MooringBuoy);
+    }
+
+    public void ToggleWreck(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.Wreck);
+    }
+
+    public void ToggleSpecialPurposeBuoy(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.SpecialPurposeBuoy);
+    }
+
+    public void ToggleOtherShip(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.OtherShip);
+    }
+
+    public void ToggleRocks(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.Reef);
+    }
+
+        // Toggle Suggested Route Points
+    public void ToggleSuggestedRoutePoints(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.MyRoutePoint);
+    }
+
+    // Toggle Other Ship's Suggested Route Points
+    public void ToggleOtherShipsSuggestedRoutePoints(bool isActive)
+    {
+        TogglePOIType(isActive, POIType.OtherRoutePoint);
+    }
+
+    // Toggle Suggested Route Line
+    public void ToggleSuggestedRouteLine(bool isActive)
+    {
+        if (myRouteLineRenderer != null)
+        {
+            myRouteLineRenderer.gameObject.SetActive(isActive);
+        }
+    }
+
+    // Toggle Uncertainty Route Line
+    public void ToggleUncertaintyRouteLine(bool isActive)
+    {
+        if (myRouteUncertainLineRenderer != null)
+        {
+            myRouteUncertainLineRenderer.gameObject.SetActive(isActive);
+        }
+    }
+
+    // Toggle Other Ship's Suggested Route Line
+    public void ToggleOtherShipsSuggestedRouteLine(bool isActive)
+    {
+        if (otherRouteLineRenderer != null)
+        {
+            otherRouteLineRenderer.gameObject.SetActive(isActive);
+        }
+    }
+
+    // Toggle Other Ship's Uncertainty Route Line
+    public void ToggleOtherShipsUncertaintyRouteLine(bool isActive)
+    {
+        if (otherRouteUncertainLineRenderer != null)
+        {
+            otherRouteUncertainLineRenderer.gameObject.SetActive(isActive);
+        }
+    }
+
+    // Toggle Suggested Route Line on Map
+    public void ToggleSuggestedRouteLineOnMap(bool isActive)
+    {
+        if (mapGameObject != null)
+        {
+            foreach (Transform child in mapGameObject.transform)
+            {
+                if (child.name.Contains("SuggestedRouteLine"))
+                {
+                    child.gameObject.SetActive(isActive);
+                }
+            }
+        }
+    }
+
+    // Toggle Uncertainty Route Line on Map
+    public void ToggleUncertaintyRouteLineOnMap(bool isActive)
+    {
+        if (mapGameObject != null)
+        {
+            foreach (Transform child in mapGameObject.transform)
+            {
+                if (child.name.Contains("UncertaintyRouteLine"))
+                {
+                    child.gameObject.SetActive(isActive);
+                }
+            }
+        }
+    }
+
+    // Toggle Other Ship's Suggested Route Line on Map
+    public void ToggleOtherShipsSuggestedRouteLineOnMap(bool isActive)
+    {
+        if (mapGameObject != null)
+        {
+            foreach (Transform child in mapGameObject.transform)
+            {
+                if (child.name.Contains("OtherShipsSuggestedRouteLine"))
+                {
+                    child.gameObject.SetActive(isActive);
+                }
+            }
+        }
+    }
+
+    // Toggle Other Ship's Uncertainty Route Line on Map
+    public void ToggleOtherShipsUncertaintyRouteLineOnMap(bool isActive)
+    {
+        if (mapGameObject != null)
+        {
+            foreach (Transform child in mapGameObject.transform)
+            {
+                if (child.name.Contains("OtherShipsUncertaintyRouteLine"))
+                {
+                    child.gameObject.SetActive(isActive);
+                }
+            }
+        }
+    }
+
+    // Disable All Route Elements
+    public void DisableAllRouteElements()
+    {
+        ToggleSuggestedRoutePoints(false);
+        ToggleOtherShipsSuggestedRoutePoints(false);
+        ToggleSuggestedRouteLine(false);
+        ToggleUncertaintyRouteLine(false);
+        ToggleOtherShipsSuggestedRouteLine(false);
+        ToggleOtherShipsUncertaintyRouteLine(false);
+        ToggleOtherShipsSuggestedRouteLineOnMap(false);
+        ToggleOtherShipsUncertaintyRouteLineOnMap(false);
+        ToggleSuggestedRouteLineOnMap(false);
+        ToggleUncertaintyRouteLineOnMap(false);
+    }
+
+    // Enable All Route Elements
+    public void EnableAllRouteElements()
+    {
+        ToggleSuggestedRoutePoints(true);
+        ToggleOtherShipsSuggestedRoutePoints(true);
+        ToggleSuggestedRouteLine(true);
+        ToggleUncertaintyRouteLine(true);
+        ToggleOtherShipsSuggestedRouteLine(true);
+        ToggleOtherShipsUncertaintyRouteLine(true);
+        ToggleOtherShipsSuggestedRouteLineOnMap(true);
+        ToggleOtherShipsUncertaintyRouteLineOnMap(true);
+        ToggleSuggestedRouteLineOnMap(true);
+        ToggleUncertaintyRouteLineOnMap(true);
+    }
+
+    // Function to set the horizon calibration
+    public void CalibrateHorizon(Vector3 origin, Vector3 normal)
+    {
+        horizonOrigin = origin;
+        horizonNormal = normal;
+        isHorizonCalibrated = true;
+        Debug.Log("Horizon calibrated: Origin = " + horizonOrigin + ", Normal = " + horizonNormal);
+    }
+
+    public void AlignHorizon()
+    {
+        if (HorizonLine != null)
+        {
+            Vector3 origin = HorizonLine.transform.position;
+            Vector3 normal = Vector3.up; // Assuming the line is parallel to the ground.
+            
+            CalibrateHorizon(origin, normal);
+
+        }
+        else
+        {
+            Debug.LogError("HorizonLine is not assigned.");
+        }
+    }
+
+    public void UpdateAllPOIsToHorizon()
+    {
+        foreach (var poiList in spawnedObjects.Values)
+        {
+            foreach (GameObject poi in poiList)
+            {
+                if (poi != null)
+                {
+                    Vector3 position = poi.transform.position;
+                    poi.transform.position = ProjectOntoHorizon(position);
+                    Debug.Log($"Updated POI {poi.name} to position {poi.transform.position}");
+                }
+            }
+        }
+    }
+
+    public void SnapAllPOIsToLineHeight()
+{
+    // Ensure we have a valid HorizonLine assigned in the Inspector
+    if (HorizonLine == null)
+    {
+        Debug.LogError("HorizonLine GameObject is not assigned.");
+        return;
+    }
+
+    // Get the line/cube's current Y position
+    float horizonY = HorizonLine.transform.position.y;
+
+    // Iterate over all spawned POIs and snap their Y to horizonY
+    foreach (var poiList in spawnedObjects.Values)
+    {
+        foreach (GameObject poi in poiList)
+        {
+            if (poi != null)
+            {
+                Vector3 currentPos = poi.transform.position;
+                currentPos.y = horizonY;
+                poi.transform.position = currentPos;
+            }
+        }
+    }
+
+    Debug.Log($"All POIs snapped to Y = {horizonY} (the HorizonLine's height).");
+}
+
+
+
+    
 }

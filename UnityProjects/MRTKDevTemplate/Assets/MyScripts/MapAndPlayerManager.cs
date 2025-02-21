@@ -16,6 +16,10 @@ public class MapAndPlayerManager : MonoBehaviour
     private Vector2d coordinates;
 
     public Dictionary<GameObject, Vector2d> spawnedPOIs = new();
+    
+    public Dictionary<GameObject, List<Vector2d>> spawnedAreas = new Dictionary<GameObject, List<Vector2d>>();
+
+
 
     // New LineRenderers that won't get wider
     public LineRenderer myRouteMapLineRenderer; // Add this in the inspector
@@ -79,7 +83,78 @@ public class MapAndPlayerManager : MonoBehaviour
             poi.Key.transform.position = map.GeoToWorldPosition(poi.Value);
             poi.Key.transform.position = new Vector3(poi.Key.transform.position.x, poi.Key.transform.position.y + 0.01f, poi.Key.transform.position.z);
         }
+        // Update polygons, too
+        UpdateSpawnedAreas();
     }
+
+    public void UpdateSpawnedAreas()
+    {
+        if (!mapInitialized || !MapGameobject.activeSelf)
+            return;
+
+        foreach (var kvp in spawnedAreas)
+        {
+            GameObject areaObj = kvp.Key;
+            List<Vector2d> latLonVertices = kvp.Value;
+
+            MeshFilter meshFilter = areaObj.GetComponent<MeshFilter>();
+            if (meshFilter == null)
+                continue;
+
+            // We'll need the parent's transform
+            Transform parentT = areaObj.transform.parent; 
+            if (!parentT)
+                continue; // Just in case
+
+            Vector3[] vertices = new Vector3[latLonVertices.Count];
+            for (int i = 0; i < latLonVertices.Count; i++)
+            {
+                // 1) Get the world position from Mapbox
+                Vector3 worldPos = map.GeoToWorldPosition(latLonVertices[i]);
+                worldPos.y += 0.01f;  // small lift above the map
+
+                // 2) Convert it to local space relative to the mapGameObject
+                Vector3 localPos = parentT.InverseTransformPoint(worldPos);
+
+                // 3) Store in the mesh array
+                vertices[i] = localPos;
+            }
+
+            // Triangulate, assign to mesh, etc.
+            int[] triangles = Triangulate(vertices.Length);
+
+            Mesh mesh = meshFilter.sharedMesh;
+            if (mesh == null)
+            {
+                mesh = new Mesh();
+                meshFilter.sharedMesh = mesh;
+            }
+            else
+            {
+                mesh.Clear();
+            }
+
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
+        }
+    }
+
+
+    // Simple fan triangulation for convex polygons
+    private int[] Triangulate(int vertexCount)
+    {
+        List<int> triangles = new List<int>();
+        for (int i = 1; i < vertexCount - 1; i++)
+        {
+            triangles.Add(0);
+            triangles.Add(i);
+            triangles.Add(i + 1);
+        }
+        return triangles.ToArray();
+    }
+
+
 
     public void SetCoordinates(Vector2d coordinates)
     {
