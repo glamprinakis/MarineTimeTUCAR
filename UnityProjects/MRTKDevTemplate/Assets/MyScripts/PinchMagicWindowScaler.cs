@@ -1,4 +1,4 @@
-using Microsoft.MixedReality.Toolkit;
+//using Microsoft.MixedReality.Toolkit;
 using UnityEngine;
 
 public class PinchMagicWindowScaler : MonoBehaviour

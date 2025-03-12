@@ -1,6 +1,6 @@
 using UnityEngine;
-using Microsoft.MixedReality.QR; // For QRCodeWatcher, QRCodeAddedEventArgs, etc.
-using System;
+using Microsoft.MixedReality.QR;
+using System; // For Guid, etc.
 using System.Collections.Generic;
 
 /// <summary>
@@ -15,7 +15,8 @@ public class QRTrackingManager : MonoBehaviour
     private bool watcherStarted = false;
 
     // Dictionary of codeId -> QRCodeTracker instance
-    public Dictionary<Guid, QRCodeTracker> ActiveTrackers = new Dictionary<Guid, QRCodeTracker>();
+    public Dictionary<Guid, QRCodeTracker> ActiveTrackers 
+        = new Dictionary<Guid, QRCodeTracker>();
 
     private async void Start()
     {
@@ -28,7 +29,7 @@ public class QRTrackingManager : MonoBehaviour
             Debug.Log("[QRTrackingManager] Access to QR codes granted. Setting up QRCodeWatcher...");
 
             qrWatcher = new QRCodeWatcher();
-            qrWatcher.Added   += OnQRCodeAdded;
+            qrWatcher.Added += OnQRCodeAdded;
             qrWatcher.Updated += OnQRCodeUpdated;
             qrWatcher.Removed += OnQRCodeRemoved;
 
@@ -39,7 +40,7 @@ public class QRTrackingManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("[QRTrackingManager] Access to QR codes NOT allowed.");
+            Debug.LogError("[QRTrackingManager] Access to QR codes not allowed.");
         }
     }
 
@@ -48,45 +49,43 @@ public class QRTrackingManager : MonoBehaviour
     // -------------------------------------------------
     private void OnQRCodeAdded(object sender, QRCodeAddedEventArgs e)
     {
-        // The QR events come off the main Unity thread,
-        // so we marshal back using InvokeOnAppThread:
-        UnityEngine.WSA.Application.InvokeOnAppThread(() =>
-        {
-            Debug.Log("[QRTrackingManager] OnQRCodeAdded fired.");
-
-            var code = e.Code;
-            Debug.Log($"[QRTrackingManager] Code ID: {code.Id}, Data: '{code.Data}'");
-            Debug.Log($"[QRTrackingManager] Already in dictionary? {ActiveTrackers.ContainsKey(code.Id)}");
-
-            // If we already have this code, do NOT create another tracker
-            if (ActiveTrackers.ContainsKey(code.Id))
+           
+        
+            UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
-                Debug.Log($"[QRTrackingManager] Code {code.Id} is already in dictionary, skipping creation.");
-            }
-            else
-            {
-                // This is a new code -> create a tracker
-                Debug.Log($"[QRTrackingManager] Creating a new tracker object for code {code.Id}...");
+                Debug.Log("[QRTrackingManager] OnQRCodeAdded fired.");
 
-                GameObject trackerObj = Instantiate(qrCodeTrackerPrefab);
-                trackerObj.name = $"QRCodeTracker_{code.Id}"; // So you see it in the Hierarchy
+                var code = e.Code;
+                Debug.Log($"[QRTrackingManager] Code ID: {code.Id}, Data: '{code.Data}'");
+                Debug.Log($"[QRTrackingManager] Already in dictionary? {ActiveTrackers.ContainsKey(code.Id)}");
 
-                var tracker = trackerObj.GetComponent<QRCodeTracker>();
-                if (tracker == null)
+                // Correct condition:
+                // If we already have this code, do NOT create another tracker
+                if (ActiveTrackers.ContainsKey(code.Id))
                 {
-                    Debug.LogError("[QRTrackingManager] The prefab does NOT have a QRCodeTracker component!");
-                    return;
+                    Debug.Log($"[QRTrackingManager] Code {code.Id} is already in dictionary, skipping creation.");
                 }
+                else
+                {
+                    // This is a truly new code -> create a tracker
+                    Debug.Log($"[QRTrackingManager] Creating a new tracker object for code {code.Id}...");
+                    
+                    UnityMainThreadDispatcher.Instance.Enqueue(() =>
+                        {
+                            GameObject trackerObj = Instantiate(qrCodeTrackerPrefab);
+                            var tracker = trackerObj.GetComponent<QRCodeTracker>();
 
-                // Initialize the tracker with the newly detected QR code info
-                tracker.Initialize(code);
+                            // Initialize the tracker with the newly detected QR code info
+                            tracker.Initialize(code);
 
-                // Store it in the dictionary
-                ActiveTrackers[code.Id] = tracker;
+                            // Store it in the dictionary
+                            ActiveTrackers[code.Id] = tracker;
 
-                Debug.Log($"[QRTrackingManager] Added code: '{code.Data}', ID: {code.Id}");
-            }
-        }, false);
+                            Debug.Log($"[QRTrackingManager] Added code: '{code.Data}', ID: {code.Id}");
+                        });
+                    
+                }
+            }, false);
     }
 
     // -------------------------------------------------
@@ -102,7 +101,10 @@ public class QRTrackingManager : MonoBehaviour
             if (ActiveTrackers.TryGetValue(code.Id, out var tracker))
             {
                 Debug.Log($"[QRTrackingManager] Found existing tracker for code {code.Id}, re-initializing it.");
-                tracker.Initialize(code);  // or partial updates if needed
+                UnityMainThreadDispatcher.Instance.Enqueue(() =>
+                        {
+                            tracker.Initialize(code);  // or do partial updates if needed
+                        });
             }
             else
             {
@@ -133,4 +135,18 @@ public class QRTrackingManager : MonoBehaviour
             }
         }, false);
     }
+
+    private void OnDestroy()
+    {
+        if (qrWatcher != null)
+        {
+            qrWatcher.Stop();
+            qrWatcher.Added -= OnQRCodeAdded;
+            qrWatcher.Updated -= OnQRCodeUpdated;
+            qrWatcher.Removed -= OnQRCodeRemoved;
+            qrWatcher = null;
+            Debug.Log("[QRTrackingManager] QRCodeWatcher stopped and events unsubscribed.");
+        }
+    }
+
 }

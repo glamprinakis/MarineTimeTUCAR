@@ -62,6 +62,10 @@ public class SimplePinchDetector : MonoBehaviour
     /// </summary>
     private List<GameObject> temporaryCornerMarkers = new List<GameObject>();
 
+    [Header("Hierarchy Settings")]
+    public Transform panelParentTransform;
+
+
     void Awake()
     {
         corners = new Vector3[totalCorners];
@@ -216,7 +220,7 @@ public class SimplePinchDetector : MonoBehaviour
         }
     }
 
-    private void BuildMeshAtCorners()
+        private void BuildMeshAtCorners()
     {
         if (corners.Length < 4)
         {
@@ -224,12 +228,22 @@ public class SimplePinchDetector : MonoBehaviour
             return;
         }
 
-        // Create a parent GameObject to organize the panel and markers
+        // --------------------------------------------------------------------
+        // Create a parent GameObject in the desired hierarchy location
+        // --------------------------------------------------------------------
+        // If the user did not specify a parent in the Inspector,
+        // we can default to this script's own transform or to the scene root.
+        Transform targetParent = (panelParentTransform != null)
+            ? panelParentTransform
+            : null; // or "this.transform" if you want to fallback to the script's transform
+
         GameObject panelParent = new GameObject($"PanelParent_{createdPanels.Count + 1}");
+        panelParent.transform.SetParent(targetParent, worldPositionStays: true);
+        // --------------------------------------------------------------------
 
         // Create the panel
         GameObject panelObject = new GameObject("CustomPanelMesh");
-        panelObject.transform.SetParent(panelParent.transform); // Attach to parent
+        panelObject.transform.SetParent(panelParent.transform); // Attach to newly created parent
 
         MeshFilter mf = panelObject.AddComponent<MeshFilter>();
         MeshRenderer mr = panelObject.AddComponent<MeshRenderer>();

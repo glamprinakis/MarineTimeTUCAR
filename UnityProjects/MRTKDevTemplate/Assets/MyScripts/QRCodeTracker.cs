@@ -1,81 +1,96 @@
-using System;
 using UnityEngine;
 using Microsoft.MixedReality.QR;
+using System;
 
 #if WINDOWS_UWP
 using Windows.Perception.Spatial;
 using Windows.Perception.Spatial.Preview;
-using Microsoft.MixedReality.Toolkit.Utilities;
+using Microsoft.MixedReality.Toolkit.Utilities; // MRTK namespace for WindowsMixedRealityUtilities
 #endif
 
 public class QRCodeTracker : MonoBehaviour
 {
     private QRCode qrCode;
-    public string CodeData => qrCode != null ? qrCode.Data : "";
-    private bool isInitialized = false;
+    public Guid CodeId => qrCode == null ? Guid.Empty : qrCode.Id;
 
-    private void Start()
+    private bool isDetected = false;
+    public bool IsDetected => isDetected;
+
+    // Reference to the calibration manager to notify when a QR code is recognized.
+    private CalibrationAndOperationManager calibrationOpManager;
+
+    private void Awake()
     {
-        Debug.LogError("QRCodeTracker: Start() called. Awaiting Initialize().");
+        // Find the calibration manager in the scene
+        calibrationOpManager = FindObjectOfType<CalibrationAndOperationManager>();
     }
 
     public void Initialize(QRCode code)
     {
         qrCode = code;
-        isInitialized = true;
-        Debug.LogError($"QRCodeTracker: Initialized with code.Data='{CodeData}', ID={code.Id}");
-        UpdateTransformFromQRCode();
+        isDetected = true;
+        UpdatePoseFromCode();
+
+        // Notify the calibration/operation manager that the code has been recognized.
+        calibrationOpManager?.OnCodeRecognized(this);
     }
 
     private void Update()
     {
-        if (isInitialized && qrCode != null)
+        if (isDetected && qrCode != null)
         {
-            UpdateTransformFromQRCode();
+            UpdatePoseFromCode();
         }
     }
 
-#if WINDOWS_UWP
-    private SpatialCoordinateSystem rootCoordinateSystem = null;
-#endif
-
-    private void UpdateTransformFromQRCode()
+    /// <summary>
+    /// Gets the real-world (Unity) position/rotation from the QR code's SpatialGraphNodeId
+    /// and applies it to this GameObject.
+    /// </summary>
+    private void UpdatePoseFromCode()
     {
-#if WINDOWS_UWP
-        if (rootCoordinateSystem == null)
+        #if WINDOWS_UWP
+        Debug.Log("Attempting to update pose for code " + qrCode?.Id);
+
+        // Create a SpatialCoordinateSystem for the QR code node.
+        SpatialCoordinateSystem codeCoord =
+            SpatialGraphInteropPreview.CreateCoordinateSystemForNode(qrCode.SpatialGraphNodeId);
+
+        if (codeCoord == null)
         {
-            rootCoordinateSystem = WindowsMixedRealityUtilities.SpatialCoordinateSystem;
-            if (rootCoordinateSystem == null)
-            {
-                Debug.LogError("QRCodeTracker: rootCoordinateSystem is NULL!");
-                return;
-            }
-        }
-        SpatialCoordinateSystem codeCoordSystem = SpatialGraphInteropPreview.CreateCoordinateSystemForNode(qrCode.SpatialGraphNodeId);
-        if (codeCoordSystem == null)
-        {
-            Debug.LogError($"QRCodeTracker: CreateCoordinateSystemForNode returned null for code '{CodeData}'");
+            Debug.LogWarning($"[{name}] codeCoord is null for code {qrCode?.Id}.");
             return;
         }
-        var relativePose = codeCoordSystem.TryGetTransformTo(rootCoordinateSystem);
+
+        // Get the root coordinate system from MRTK utilities.
+        var rootCoord = WindowsMixedRealityUtilities.SpatialCoordinateSystem;
+        var relativePose = codeCoord.TryGetTransformTo(rootCoord);
         if (!relativePose.HasValue)
         {
-            Debug.LogError($"QRCodeTracker: TryGetTransformTo failed for code '{CodeData}'");
+            Debug.LogWarning($"[{name}] relativePose is null; cannot locate code {qrCode?.Id} in world.");
             return;
         }
-        Matrix4x4 unityMat = WindowsMixedRealityUtilities.SystemNumericsMatrixToUnityMatrix(relativePose.Value);
-        Vector3 newPosition = unityMat.GetColumn(3);
-        Vector3 forward = unityMat.GetColumn(2);
-        Vector3 upwards = unityMat.GetColumn(1);
-        Quaternion newRotation = Quaternion.identity;
-        if (forward.sqrMagnitude > 1e-8f && upwards.sqrMagnitude > 1e-8f)
-            newRotation = Quaternion.LookRotation(forward, upwards);
-        else
-            Debug.LogError($"QRCodeTracker: forward/up near zero for code '{CodeData}', using identity rotation.");
-        transform.SetPositionAndRotation(newPosition, newRotation);
-        Debug.LogError($"QRCodeTracker: Updated transform for code '{CodeData}' => pos = {newPosition}, rot = {newRotation}");
-#else
-        transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-#endif
+
+        Debug.Log($"[{name}] relativePose is valid. Updating transform...");
+
+        // Convert the system numerics matrix to Unity matrix.
+        var mat = WindowsMixedRealityUtilities.SystemNumericsMatrixToUnityMatrix(relativePose.Value);
+        Vector3 position = mat.GetColumn(3);
+        Vector3 forward = mat.GetColumn(2);  // Z-axis
+        Vector3 up = mat.GetColumn(1);       // Y-axis
+
+        // Ensure the forward vector is not nearly zero.
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            Debug.LogWarning($"[{name}] Forward vector is nearly zero. Rotation may fail.");
+            return;
+        }
+
+        // Update the transform with the new position and rotation.
+        Quaternion rotation = Quaternion.LookRotation(forward, up);
+        transform.SetPositionAndRotation(position, rotation);
+        #else
+        Debug.Log("UpdatePoseFromCode is only implemented for UWP platforms.");
+        #endif
     }
 }

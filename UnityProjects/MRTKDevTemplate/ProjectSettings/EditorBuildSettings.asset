@@ -8,9 +8,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Mapbox Hololens2/Scene/Hololens2 Scene.unity
     guid: 406cf847808e88d4b99604458da50dd4
-  - enabled: 1
+  - enabled: 0
     path: Assets/MyScenes/Location-basedGame.unity
     guid: 42f6aa7ce7a604f16ade319663f46ceb
+  - enabled: 1
+    path: Assets/MyScenes/Testing.unity
+    guid: 014be638c783b844a901bfc963d46dc2
   m_configObjects:
     Unity.XR.WindowsMR.Settings: {fileID: 11400000, guid: 83f73a991994008498afc556058022ef, type: 2}
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 87467803e919cef4394e7f39c6521b51, type: 2}
