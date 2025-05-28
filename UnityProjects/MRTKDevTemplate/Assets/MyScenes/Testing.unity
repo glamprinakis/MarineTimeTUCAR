@@ -12397,6 +12397,7 @@ Transform:
   - {fileID: 6180679575869898221}
   - {fileID: 1115207788}
   - {fileID: 174219375}
+  - {fileID: 646167865}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &486750395
@@ -17876,6 +17877,53 @@ Transform:
   - {fileID: 542069762}
   m_Father: {fileID: 780442057}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &646167864
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 646167865}
+  - component: {fileID: 646167866}
+  m_Layer: 0
+  m_Name: PairinigManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &646167865
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 646167864}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 486750394}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &646167866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 646167864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0c5c3a3a11b75e47a426d2f5e71f624, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  webSocketConnection: {fileID: 1749263606}
+  targetPhoneId: 
+  currentState: 0
 --- !u!1 &649199364
 GameObject:
   m_ObjectHideFlags: 0
@@ -45170,9 +45218,12 @@ MonoBehaviour:
   UnknownDangerMapPrefab: {fileID: 7331941573479164075, guid: 2ff0b7070e9669547adaf52622c2a407, type: 3}
   MooringBuoyMapPrefab: {fileID: 2356859357645227524, guid: 4c0df92e8199fb749815c009b3afba66, type: 3}
   SpecialPurposeBuoyMapPrefab: {fileID: 9192756578935530298, guid: 0f025c4dd96f2414e8795ff11544b0cd, type: 3}
+  useFakeCoordinates: 0
+  referenceCoordinates: 
+  referenceUnityPosition: {x: 0, y: 0, z: 0}
   referenceLatitude: 35.49257192565609
   referenceLongitude: 24.068014054109852
-  referenceCoordinatesSet: 1
+  referenceCoordinatesSet: 0
   mapGameObject: {fileID: 396044037}
   myRouteLineRenderer: {fileID: 2035060252}
   otherRouteLineRenderer: {fileID: 1986621360}
@@ -45197,21 +45248,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4902afd0ac900aa42bdc8862a4a3df34, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  inputField: {fileID: 0}
-  sendButton: {fileID: 0}
-  ChiefButton: {fileID: 0}
-  Operator1Button: {fileID: 0}
-  Operator2Button: {fileID: 0}
-  Operator3Button: {fileID: 0}
-  saveButton: {fileID: 0}
-  loadButton: {fileID: 0}
-  ip: 192.168.0.104
+  jsonText: {fileID: 0}
+  ip: 147.27.41.154
   isApplicationQuitting: 0
   attempt: 0
   uniqueID: 
-  stick: {fileID: 0}
-  mapGameObject: {fileID: 0}
-  spawner: {fileID: 0}
+  mapManager: {fileID: 173206262}
+  spawner: {fileID: 1749263605}
+  pairingManager: {fileID: 646167866}
 --- !u!114 &1749263607
 MonoBehaviour:
   m_ObjectHideFlags: 0

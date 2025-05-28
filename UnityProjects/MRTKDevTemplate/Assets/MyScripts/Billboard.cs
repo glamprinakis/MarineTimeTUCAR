@@ -33,7 +33,7 @@ public class Billboard : MonoBehaviour
         {
             // Update the object to face the camera, ignoring pitch
             Vector3 targetPosition = new Vector3(cameraTransform.position.x, transform.position.y, cameraTransform.position.z);
-            targetRotation = Quaternion.LookRotation(-targetPosition + transform.position);
+            //targetRotation = Quaternion.LookRotation(-targetPosition + transform.position);
             transform.rotation = targetRotation;
             //Rotate parent too
             if (enableForParent && parentTranform != null)

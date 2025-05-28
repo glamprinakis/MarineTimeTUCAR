@@ -90,7 +90,7 @@ public class GPSMulti : MonoBehaviour
     public GameObject MooringBuoyPrefab;
     public GameObject SpecialPurposeBuoyPrefab;
 
-    
+
 
     [Header("Map Prefabs")]
     public GameObject CollisionPointMapPrefab;
@@ -110,9 +110,13 @@ public class GPSMulti : MonoBehaviour
 
 
 
+    [Header("Reference Coordinate Values")]
+    [SerializeField] private bool useFakeCoordinates = false;
+    public string referenceCoordinates;
+    public Vector3 referenceUnityPosition = Vector3.zero;
     public double referenceLatitude = 0.0;
     public double referenceLongitude = 0.0;
-    public bool referenceCoordinatesSet = false;  // Add this line
+    public bool referenceCoordinatesSet = false;
     public GameObject mapGameObject;
 
     private Dictionary<POIType, GameObject> poiPrefabs;
@@ -121,9 +125,9 @@ public class GPSMulti : MonoBehaviour
 
     public Dictionary<POIType, List<GameObject>> spawnedObjects = new Dictionary<POIType, List<GameObject>>();
 
-private void Awake()
-{
-    poiPrefabs = new Dictionary<POIType, GameObject>
+    private void Awake()
+    {
+        poiPrefabs = new Dictionary<POIType, GameObject>
     {
         { POIType.CollisionPoint, CollisionPointPrefab },
         { POIType.Ship, ShipPrefab },
@@ -141,7 +145,7 @@ private void Awake()
         { POIType.SpecialPurposeBuoy, SpecialPurposeBuoyPrefab }
     };
 
-    mapPrefabs = new Dictionary<POIType, GameObject>
+        mapPrefabs = new Dictionary<POIType, GameObject>
     {
         { POIType.CollisionPoint, CollisionPointMapPrefab },
         { POIType.Ship, MyShipMapPrefab },
@@ -159,15 +163,15 @@ private void Awake()
         { POIType.SpecialPurposeBuoy, SpecialPurposeBuoyMapPrefab }
     };
 
-    // Initialize the spawnedObjects dictionary with empty lists for all POI types
-    foreach (POIType poiType in Enum.GetValues(typeof(POIType)))
-    {
-        if (!spawnedObjects.ContainsKey(poiType))
+        // Initialize the spawnedObjects dictionary with empty lists for all POI types
+        foreach (POIType poiType in Enum.GetValues(typeof(POIType)))
         {
-            spawnedObjects[poiType] = new List<GameObject>();
+            if (!spawnedObjects.ContainsKey(poiType))
+            {
+                spawnedObjects[poiType] = new List<GameObject>();
+            }
         }
     }
-}
 
 
     [Header("Line Renderer")]
@@ -206,7 +210,10 @@ private void Awake()
     private IEnumerator InitializeGPSMulti()
     {
         // Wait until the end of the frame to ensure DataDeserialization has finished initializing
-        yield return new WaitForEndOfFrame();
+        while (!referenceCoordinatesSet)
+        {
+            yield return null;
+        }
 
         // Create LineRenderers for the uncertain routes if not assigned
         if (myRouteUncertainLineRenderer == null)
@@ -257,52 +264,52 @@ private void Awake()
             spawnedObjects[coord.POIType].Add(pointObject);
         }
 
-        if (DataDeserialization.Instance != null)
-        {
-            ShipData shipData = DataDeserialization.Instance.ShipData;
-
-            if (shipData.ship1_traj_lon != null && shipData.ship1_traj_lat != null)
-            {
-                for (int i = 0; i < shipData.ship1_traj_lon.Length; i++)
+        /*         if (DataDeserialization.Instance != null)
                 {
-                    GPSCoordinate coordinates = new GPSCoordinate
+                    ShipData shipData = DataDeserialization.Instance.ShipData;
+
+                    if (shipData.ship1_traj_lon != null && shipData.ship1_traj_lat != null)
                     {
-                        coordinates = shipData.ship1_traj_lat[i] + "," + shipData.ship1_traj_lon[i],
-                        POIType = POIType.MyRoutePoint
-                    };
-                    GameObject pointObject = SpawnObjectAtLocation(coordinates);
-                    spawnedObjects[coordinates.POIType].Add(pointObject);
-                    Debug.Log("Ship 1111111: " + shipData.ship1_traj_lat[i] + shipData.ship1_traj_lon[i]);
+                        for (int i = 0; i < shipData.ship1_traj_lon.Length; i++)
+                        {
+                            GPSCoordinate coordinates = new GPSCoordinate
+                            {
+                                coordinates = shipData.ship1_traj_lat[i] + "," + shipData.ship1_traj_lon[i],
+                                POIType = POIType.MyRoutePoint
+                            };
+                            GameObject pointObject = SpawnObjectAtLocation(coordinates);
+                            spawnedObjects[coordinates.POIType].Add(pointObject);
+                            Debug.Log("Ship 1111111: " + shipData.ship1_traj_lat[i] + shipData.ship1_traj_lon[i]);
+                        }
+
+                        // Initialize the MyRouteLineRenderer position count
+                        myRouteLineRenderer.positionCount = spawnedObjects[POIType.MyRoutePoint].Count;
+                        myRouteUncertainLineRenderer.positionCount = spawnedObjects[POIType.MyRoutePoint].Count;
+                    }
+
+                    if (shipData.ship2_traj_lon != null && shipData.ship2_traj_lat != null)
+                    {
+                        for (int i = 0; i < shipData.ship2_traj_lon.Length; i++)
+                        {
+                            GPSCoordinate coordinates = new GPSCoordinate
+                            {
+                                coordinates = shipData.ship2_traj_lat[i] + "," + shipData.ship2_traj_lon[i],
+                                POIType = POIType.OtherRoutePoint
+                            };
+                            GameObject pointObject = SpawnObjectAtLocation(coordinates);
+                            spawnedObjects[coordinates.POIType].Add(pointObject);
+                            Debug.Log("Ship 222222: " + shipData.ship2_traj_lat[i] + shipData.ship2_traj_lon[i]);
+                        }
+
+                        // Initialize the OtherRouteLineRenderer position count
+                        otherRouteLineRenderer.positionCount = spawnedObjects[POIType.OtherRoutePoint].Count;
+                        otherRouteUncertainLineRenderer.positionCount = spawnedObjects[POIType.OtherRoutePoint].Count;
+                    }
                 }
-
-                // Initialize the MyRouteLineRenderer position count
-                myRouteLineRenderer.positionCount = spawnedObjects[POIType.MyRoutePoint].Count;
-                myRouteUncertainLineRenderer.positionCount = spawnedObjects[POIType.MyRoutePoint].Count;
-            }
-
-            if (shipData.ship2_traj_lon != null && shipData.ship2_traj_lat != null)
-            {
-                for (int i = 0; i < shipData.ship2_traj_lon.Length; i++)
+                else
                 {
-                    GPSCoordinate coordinates = new GPSCoordinate
-                    {
-                        coordinates = shipData.ship2_traj_lat[i] + "," + shipData.ship2_traj_lon[i],
-                        POIType = POIType.OtherRoutePoint
-                    };
-                    GameObject pointObject = SpawnObjectAtLocation(coordinates);
-                    spawnedObjects[coordinates.POIType].Add(pointObject);
-                    Debug.Log("Ship 222222: " + shipData.ship2_traj_lat[i] + shipData.ship2_traj_lon[i]);
-                }
-
-                // Initialize the OtherRouteLineRenderer position count
-                otherRouteLineRenderer.positionCount = spawnedObjects[POIType.OtherRoutePoint].Count;
-                otherRouteUncertainLineRenderer.positionCount = spawnedObjects[POIType.OtherRoutePoint].Count;
-            }
-        }
-        else
-        {
-            Debug.LogError("DataDeserialization instance is not available.");
-        }
+                    Debug.LogError("DataDeserialization instance is not available.");
+                } */
     }
 
     private void Update()
@@ -396,14 +403,6 @@ private void Awake()
         lineRenderer.widthCurve = widthCurve;
     }
 
-
-
-
-
-
-
-
-
     public void UpdateReferenceCoordinates(double latitude, double longitude)
     {
         referenceLatitude = latitude;
@@ -421,7 +420,7 @@ private void Awake()
                 //spawn the object as child of mapGameObject
                 GameObject createdObj = Instantiate(prefab, mapGameObject.transform);
                 // Set created object's position to 0,0.1,0
-                //createdObj.transform.localPosition = new Vector3(0, 0, 0);
+                createdObj.transform.localPosition = new Vector3(0, 0, 0);
                 // Add to mapObjects list
                 mapGameObject.GetComponentInParent<MapAndPlayerManager>().spawnedPOIs.Add(createdObj, new Vector2d(coord.Latitude, coord.Longitude));
                 mapGameObject.GetComponentInParent<MapAndPlayerManager>().UpdateSpawnedPOIs();
@@ -439,7 +438,7 @@ private void Awake()
 
 
     }
-    
+
 
     public GameObject SpawnObjectAtLocation(GPSCoordinate coord)
     {
@@ -599,7 +598,7 @@ private void Awake()
         if (areaMapMaterial != null)
         {
             // If you want the same as the real world
-            meshRenderer.material = areaMapMaterial; 
+            meshRenderer.material = areaMapMaterial;
         }
         else if (areaMapMaterial != null)
         {
@@ -700,7 +699,7 @@ private void Awake()
             Debug.LogWarning($"No POIs found for type {poiType}.");
         }
     }
-     // Method to handle toggle state changes for POIs
+    // Method to handle toggle state changes for POIs
     public void TogglePOIType(bool isActive, POIType poiType)
     {
         if (isActive)
@@ -759,7 +758,7 @@ private void Awake()
         TogglePOIType(isActive, POIType.Reef);
     }
 
-        // Toggle Suggested Route Points
+    // Toggle Suggested Route Points
     public void ToggleSuggestedRoutePoints(bool isActive)
     {
         TogglePOIType(isActive, POIType.MyRoutePoint);
@@ -912,7 +911,7 @@ private void Awake()
         {
             Vector3 origin = HorizonLine.transform.position;
             Vector3 normal = Vector3.up; // Assuming the line is parallel to the ground.
-            
+
             CalibrateHorizon(origin, normal);
 
         }
@@ -939,35 +938,52 @@ private void Awake()
     }
 
     public void SnapAllPOIsToLineHeight()
-{
-    // Ensure we have a valid HorizonLine assigned in the Inspector
-    if (HorizonLine == null)
     {
-        Debug.LogError("HorizonLine GameObject is not assigned.");
-        return;
+        // Ensure we have a valid HorizonLine assigned in the Inspector
+        if (HorizonLine == null)
+        {
+            Debug.LogError("HorizonLine GameObject is not assigned.");
+            return;
+        }
+
+        // Get the line/cube's current Y position
+        float horizonY = HorizonLine.transform.position.y;
+
+        // Iterate over all spawned POIs and snap their Y to horizonY
+        foreach (var poiList in spawnedObjects.Values)
+        {
+            foreach (GameObject poi in poiList)
+            {
+                if (poi != null)
+                {
+                    Vector3 currentPos = poi.transform.position;
+                    currentPos.y = horizonY;
+                    poi.transform.position = currentPos;
+                }
+            }
+        }
+
+        Debug.Log($"All POIs snapped to Y = {horizonY} (the HorizonLine's height).");
     }
 
-    // Get the line/cube's current Y position
-    float horizonY = HorizonLine.transform.position.y;
-
-    // Iterate over all spawned POIs and snap their Y to horizonY
-    foreach (var poiList in spawnedObjects.Values)
+    public void clearSpawnedObjectsByType(POIType poiType)
     {
-        foreach (GameObject poi in poiList)
+        if (spawnedObjects.ContainsKey(poiType))
         {
-            if (poi != null)
+            foreach (GameObject poi in spawnedObjects[poiType])
             {
-                Vector3 currentPos = poi.transform.position;
-                currentPos.y = horizonY;
-                poi.transform.position = currentPos;
+                if (poi != null)
+                {
+                    Destroy(poi);
+                }
             }
+            spawnedObjects[poiType].Clear();
+        }
+        else
+        {
+            Debug.LogWarning($"No POIs found for type {poiType} to clear.");
         }
     }
 
-    Debug.Log($"All POIs snapped to Y = {horizonY} (the HorizonLine's height).");
-}
 
-
-
-    
 }

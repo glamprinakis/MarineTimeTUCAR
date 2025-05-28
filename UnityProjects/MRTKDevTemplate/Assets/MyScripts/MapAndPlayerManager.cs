@@ -16,7 +16,7 @@ public class MapAndPlayerManager : MonoBehaviour
     private Vector2d coordinates;
 
     public Dictionary<GameObject, Vector2d> spawnedPOIs = new();
-    
+
     public Dictionary<GameObject, List<Vector2d>> spawnedAreas = new Dictionary<GameObject, List<Vector2d>>();
 
 
@@ -64,6 +64,7 @@ public class MapAndPlayerManager : MonoBehaviour
             {
                 map.SetCenterLatitudeLongitude(coordinates);
                 map.UpdateMap();
+                UpdateSpawnedPOIs();
                 Player.transform.position = map.GeoToWorldPosition(coordinates);
                 Debug.Log("Player location:" + Player.transform.position);
             }
@@ -102,7 +103,7 @@ public class MapAndPlayerManager : MonoBehaviour
                 continue;
 
             // We'll need the parent's transform
-            Transform parentT = areaObj.transform.parent; 
+            Transform parentT = areaObj.transform.parent;
             if (!parentT)
                 continue; // Just in case
 
