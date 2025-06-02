@@ -50,10 +50,13 @@ public class GPSCoordinate
 
 public class GPSMulti : MonoBehaviour
 {
+<<<<<<< HEAD
     [Header("User Coordinates")]
     public double myLatitude = 0.0;
     public double myLongitude = 0.0;
 
+=======
+>>>>>>> master
     [Header("POIs Coordinates")]
     [Tooltip("Add all object coordinates here")]
     public List<GPSCoordinate> staticCoordinates = new List<GPSCoordinate>();
@@ -125,6 +128,11 @@ public class GPSMulti : MonoBehaviour
 
     public Dictionary<POIType, List<GameObject>> spawnedObjects = new Dictionary<POIType, List<GameObject>>();
 
+<<<<<<< HEAD
+=======
+    private Camera mainCamera;
+
+>>>>>>> master
     private void Awake()
     {
         poiPrefabs = new Dictionary<POIType, GameObject>
@@ -191,8 +199,11 @@ public class GPSMulti : MonoBehaviour
     public float myRouteUncertainYOffset = -0.1f;
     public float otherRouteUncertainYOffset = -0.1f;
 
+<<<<<<< HEAD
     public GameObject HorizonLine;
 
+=======
+>>>>>>> master
     private void Start()
     {
         StartCoroutine(InitializeGPSMulti());
@@ -205,6 +216,16 @@ public class GPSMulti : MonoBehaviour
             // Create the equivalent polygon on the map
             CreateAreaOnMap(myAreaCoordinates);
         }
+<<<<<<< HEAD
+=======
+
+        #if UNITY_EDITOR
+        if (useFakeCoordinates)
+            testReferenceCoordinatesUpdate(); //FOR TESTING PURPOSES ONLY
+        #endif
+
+        mainCamera = Camera.main;
+>>>>>>> master
     }
 
     private IEnumerator InitializeGPSMulti()
@@ -255,6 +276,10 @@ public class GPSMulti : MonoBehaviour
             GameObject pointObject = SpawnObjectAtLocation(coord);
             spawnedObjects[coord.POIType].Add(pointObject); // Store the GameObject
         }
+<<<<<<< HEAD
+=======
+        StartHorizonCalibration();
+>>>>>>> master
         Debug.Log(" Static" + spawnedObjects[POIType.General].Count);
 
         // Spawn route objects
@@ -443,6 +468,7 @@ public class GPSMulti : MonoBehaviour
     public GameObject SpawnObjectAtLocation(GPSCoordinate coord)
     {
         Vector3 position = CalculateObjectLocalPosition(coord.Latitude, coord.Longitude);
+<<<<<<< HEAD
 
         // Apply horizon projection only for specific POI types
         if (isHorizonCalibrated && ShouldProjectToHorizon(coord.POIType))
@@ -450,6 +476,10 @@ public class GPSMulti : MonoBehaviour
             position = ProjectOntoHorizon(position);
         }
 
+=======
+        float distance = GetFlatDistanceOfTwoPoints(position, Camera.main.transform.position);
+        Debug.Log("Distance: " + distance);
+>>>>>>> master
         GameObject prefab = poiPrefabs[coord.POIType];
         GameObject createdObj = Instantiate(prefab, position, Quaternion.identity);
 
@@ -462,6 +492,7 @@ public class GPSMulti : MonoBehaviour
         return createdObj;
     }
 
+<<<<<<< HEAD
     private bool ShouldProjectToHorizon(POIType poiType)
     {
         return poiType == POIType.CollisionPoint ||
@@ -495,6 +526,193 @@ public class GPSMulti : MonoBehaviour
     {
         double latOffset = (latitude - myLatitude) * 111000.0;  // meters per latitude degree
         double lonOffset = (longitude - myLongitude) * (111000.0 * Mathf.Cos((float)(myLatitude * Mathf.PI / 180.0)));
+=======
+    float GetFlatDistanceOfTwoPoints(Vector3 point1, Vector3 point2)
+    {
+        Vector3 difference = point2 - point1;
+        difference.y = 0; // Ignore the Y-axis
+        return difference.magnitude;
+    }
+     // POI types you want to adjust
+    private readonly HashSet<POIType> poiTypesToAdjust = new HashSet<POIType>
+    {
+        POIType.CollisionPoint,
+        POIType.OtherShip,
+        POIType.General,
+        POIType.ShipPassingBy,
+        POIType.RedLighthouse,
+        POIType.GreenLighthouse,
+        POIType.Reef,
+        POIType.Wreck,
+        POIType.UnknownDanger,
+        POIType.MooringBuoy,
+        POIType.SpecialPurposeBuoy
+    };
+
+    private GameObject furthestPOI;
+    private float furthestDistance;
+    private Vector3 userPos;
+    private float userY;
+    public GameObject HorizonLine;
+    public float otherPOIsStartY = -30f; // starting Y for non-adjusted POIs
+
+    // Reference distances (adjust if needed)
+    public float userReferenceDistance = 1f;      // Distance at user (starting point)
+    public float furthestReferenceDistance = 250f; // Distance at farthest POI
+
+    // Horizon line scales at these distances
+    public Vector3 horizonLineScaleAtUser = new Vector3(10000, 5, 1);
+    public Vector3 horizonLineScaleAtFurthest = new Vector3(185430, 235.735f, 1);
+
+    // POI scales at these distances
+    public Vector3 poiScaleAtUser = new Vector3(0.1f, 0.1f, 0.1f);
+    public Vector3 poiScaleAtFurthest = new Vector3(1.8f, 1.8f, 1.8f);
+
+    public void ScaleObjectByDistance(Transform obj, float distance, Vector3 scaleAtUser, Vector3 scaleAtFurthest)
+    {
+        float t = (distance - userReferenceDistance) / (furthestReferenceDistance - userReferenceDistance);
+        t = Mathf.Max(0, t); // Prevents scale shrinking below your "close" value
+        obj.localScale = Vector3.LerpUnclamped(scaleAtUser, scaleAtFurthest, t);
+    }
+
+
+    public void UpdateHorizonLineScale(Vector3 horizonLinePosition)
+    {
+        float distance = Vector3.Distance(Camera.main.transform.position, horizonLinePosition);
+
+        // Use the proportional scaling with LerpUnclamped, just like with the POIs
+        float t = (distance - userReferenceDistance) / (furthestReferenceDistance - userReferenceDistance);
+        t = Mathf.Max(0, t);
+        HorizonLine.transform.localScale = Vector3.LerpUnclamped(horizonLineScaleAtUser, horizonLineScaleAtFurthest, t);
+    }
+
+
+    public void UpdateOtherPOIScales()
+    {
+        Vector3 userPosition = Camera.main.transform.position;
+
+        foreach (var kv in spawnedObjects)
+        {
+            bool isAdjustedType = poiTypesToAdjust.Contains(kv.Key);
+            foreach (var poi in kv.Value)
+            {
+                if (isAdjustedType)
+                {
+                    // Main/general POIs: do NOT change their scale (keep prefab's default)
+                    continue;
+                }
+                else
+                {
+                    // Only scale the "other" POIs by distance
+                    float distance = Vector3.Distance(userPosition, poi.transform.position);
+                    ScaleObjectByDistance(poi.transform, distance, poiScaleAtUser, poiScaleAtFurthest);
+                }
+            }
+        }
+    }
+
+
+   // === STATE 1: Find furthest point (from ALL POIs), move line there ===
+    public void StartHorizonCalibration()
+    {
+        userPos = Camera.main.transform.position;
+        userY = userPos.y;
+        furthestDistance = -1f;
+        furthestPOI = null;
+
+        // Look for the furthest POI (regardless of type)
+        foreach (var poiList in spawnedObjects.Values)
+        {
+            foreach (var poi in poiList)
+            {
+                Vector2 userXZ = new Vector2(userPos.x, userPos.z);
+                Vector2 poiXZ = new Vector2(poi.transform.position.x, poi.transform.position.z);
+                float dist = Vector2.Distance(userXZ, poiXZ);
+                if (dist > furthestDistance)
+                {
+                    furthestDistance = dist;
+                    furthestPOI = poi;
+                }
+            }
+        }
+
+        if (furthestDistance < 0f || furthestPOI == null)
+        {
+            Debug.LogWarning("No POIs found to align.");
+            return;
+        }
+
+        // Place the horizon line in front of the user at the furthest distance (in the look direction)
+        Vector3 forward = Camera.main.transform.forward;
+        forward.y = 0; forward.Normalize();
+        Vector3 targetPos = userPos + forward * furthestDistance;
+
+        HorizonLine.transform.position = targetPos;
+        HorizonLine.transform.rotation = Quaternion.LookRotation(-forward, Vector3.up);
+        UpdateHorizonLineScale(HorizonLine.transform.position);
+        Debug.Log("Horizon line moved for calibration.");
+    }
+
+    // === STATE 2: After user confirms ===
+    public void ConfirmHorizonCalibration()
+    {
+        if (furthestPOI == null)
+        {
+            Debug.LogWarning("You must call StartHorizonCalibration first.");
+            return;
+        }
+
+        float horizonYAtFurthest = HorizonLine.transform.position.y;
+
+        foreach (var kv in spawnedObjects)
+        {
+            bool isAdjustedType = poiTypesToAdjust.Contains(kv.Key);
+            foreach (var poi in kv.Value)
+            {
+                Vector3 poiPos = poi.transform.position;
+                float poiDistance = Vector2.Distance(
+                    new Vector2(userPos.x, userPos.z),
+                    new Vector2(poiPos.x, poiPos.z)
+                );
+                float newY;
+
+                if (isAdjustedType)
+                {
+                    // General POIs: Clamp to horizon
+                    float t = furthestDistance > 0f ? Mathf.Clamp01(poiDistance / furthestDistance) : 0f;
+                    newY = Mathf.Lerp(userY, horizonYAtFurthest, t);
+                    poi.transform.position = new Vector3(poiPos.x, newY, poiPos.z);
+                }
+                else
+                {
+                    // Route/other POIs: Ramp up, don't clamp top, so points beyond reference keep going
+                    float t = (poiDistance - userReferenceDistance) / (furthestReferenceDistance - userReferenceDistance);
+                    t = Mathf.Max(0, t);
+                    newY = Mathf.LerpUnclamped(otherPOIsStartY, horizonYAtFurthest, t);
+
+                    // Place the POI
+                    poi.transform.position = new Vector3(poiPos.x, newY, poiPos.z);
+
+                    // --- Add rotation to follow the ramp angle ---
+                    // Get the ramp direction (in XZ) from the ramp's start to end (horizon)
+                    Vector3 rampDirection = (HorizonLine.transform.position - new Vector3(userPos.x, horizonYAtFurthest, userPos.z)).normalized;
+                    poi.transform.rotation = Quaternion.LookRotation(rampDirection, Vector3.up);
+                }
+                
+            }
+        }
+        UpdateOtherPOIScales();
+        Debug.Log("All POIs aligned (general types on horizon, others ramping up).");
+    }
+
+
+    
+
+    Vector3 CalculateObjectLocalPosition(double latitude, double longitude)
+    {
+        double latOffset = (latitude - referenceLatitude) * 111000.0;  // meters per latitude degree
+        double lonOffset = (longitude - referenceLongitude) * (111000.0 * Mathf.Cos((float)(referenceLatitude * Mathf.PI / 180.0)));
+>>>>>>> master
         return new Vector3((float)lonOffset, 0, (float)latOffset); // Changed Y to 0 for visualization on a flat plane
     }
 
@@ -896,6 +1114,7 @@ public class GPSMulti : MonoBehaviour
         ToggleUncertaintyRouteLineOnMap(true);
     }
 
+<<<<<<< HEAD
     // Function to set the horizon calibration
     public void CalibrateHorizon(Vector3 origin, Vector3 normal)
     {
@@ -965,6 +1184,9 @@ public class GPSMulti : MonoBehaviour
 
         Debug.Log($"All POIs snapped to Y = {horizonY} (the HorizonLine's height).");
     }
+=======
+
+>>>>>>> master
 
     public void clearSpawnedObjectsByType(POIType poiType)
     {
@@ -985,5 +1207,17 @@ public class GPSMulti : MonoBehaviour
         }
     }
 
+<<<<<<< HEAD
+=======
+    void testReferenceCoordinatesUpdate()
+    {
+        referenceLatitude = double.Parse(referenceCoordinates.Split(',')[0].Trim());
+        referenceLongitude = double.Parse(referenceCoordinates.Split(',')[1].Trim());
+        referenceCoordinatesSet = true;
+
+        mapGameObject.GetComponentInParent<MapAndPlayerManager>().SetCoordinates(new Vector2d(referenceLatitude, referenceLongitude));
+    }
+
+>>>>>>> master
 
 }
