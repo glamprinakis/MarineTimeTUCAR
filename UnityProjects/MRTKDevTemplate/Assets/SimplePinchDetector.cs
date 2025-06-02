@@ -71,7 +71,15 @@ public class SimplePinchDetector : MonoBehaviour
         corners = new Vector3[totalCorners];
         InitializePreviewMarker();
     }
+    
 
+    public void toogleMarkerVisibility()
+    {
+        if (previewMarkerInstance != null && panelMakingActive)
+        {
+            previewMarkerInstance.SetActive(!previewMarkerInstance.activeSelf);
+        }
+    }
     void InitializePreviewMarker()
     {
         if (previewMarkerPrefab == null) return;

@@ -60,11 +60,7 @@ public class MultiWindowCornerMarkerWithDeleteButton : MonoBehaviour
         // 1) Instantiate the marker prefab
         if (previewMarkerPrefab != null)
         {
-<<<<<<< HEAD
-            previewMarkerInstance = Instantiate(previewMarkerPrefab, Vector3.zero, Quaternion.identity);
-=======
            // previewMarkerInstance = Instantiate(previewMarkerPrefab, Vector3.zero, Quaternion.identity);
->>>>>>> master
 
             // Assign to Ignore Raycast layer to avoid self-raycast hits
             int ignoreLayer = LayerMask.NameToLayer("Ignore Raycast");

@@ -50,13 +50,6 @@ public class GPSCoordinate
 
 public class GPSMulti : MonoBehaviour
 {
-<<<<<<< HEAD
-    [Header("User Coordinates")]
-    public double myLatitude = 0.0;
-    public double myLongitude = 0.0;
-
-=======
->>>>>>> master
     [Header("POIs Coordinates")]
     [Tooltip("Add all object coordinates here")]
     public List<GPSCoordinate> staticCoordinates = new List<GPSCoordinate>();
@@ -128,11 +121,8 @@ public class GPSMulti : MonoBehaviour
 
     public Dictionary<POIType, List<GameObject>> spawnedObjects = new Dictionary<POIType, List<GameObject>>();
 
-<<<<<<< HEAD
-=======
     private Camera mainCamera;
 
->>>>>>> master
     private void Awake()
     {
         poiPrefabs = new Dictionary<POIType, GameObject>
@@ -199,11 +189,6 @@ public class GPSMulti : MonoBehaviour
     public float myRouteUncertainYOffset = -0.1f;
     public float otherRouteUncertainYOffset = -0.1f;
 
-<<<<<<< HEAD
-    public GameObject HorizonLine;
-
-=======
->>>>>>> master
     private void Start()
     {
         StartCoroutine(InitializeGPSMulti());
@@ -216,8 +201,6 @@ public class GPSMulti : MonoBehaviour
             // Create the equivalent polygon on the map
             CreateAreaOnMap(myAreaCoordinates);
         }
-<<<<<<< HEAD
-=======
 
         #if UNITY_EDITOR
         if (useFakeCoordinates)
@@ -225,7 +208,6 @@ public class GPSMulti : MonoBehaviour
         #endif
 
         mainCamera = Camera.main;
->>>>>>> master
     }
 
     private IEnumerator InitializeGPSMulti()
@@ -276,10 +258,7 @@ public class GPSMulti : MonoBehaviour
             GameObject pointObject = SpawnObjectAtLocation(coord);
             spawnedObjects[coord.POIType].Add(pointObject); // Store the GameObject
         }
-<<<<<<< HEAD
-=======
         StartHorizonCalibration();
->>>>>>> master
         Debug.Log(" Static" + spawnedObjects[POIType.General].Count);
 
         // Spawn route objects
@@ -468,18 +447,8 @@ public class GPSMulti : MonoBehaviour
     public GameObject SpawnObjectAtLocation(GPSCoordinate coord)
     {
         Vector3 position = CalculateObjectLocalPosition(coord.Latitude, coord.Longitude);
-<<<<<<< HEAD
-
-        // Apply horizon projection only for specific POI types
-        if (isHorizonCalibrated && ShouldProjectToHorizon(coord.POIType))
-        {
-            position = ProjectOntoHorizon(position);
-        }
-
-=======
         float distance = GetFlatDistanceOfTwoPoints(position, Camera.main.transform.position);
         Debug.Log("Distance: " + distance);
->>>>>>> master
         GameObject prefab = poiPrefabs[coord.POIType];
         GameObject createdObj = Instantiate(prefab, position, Quaternion.identity);
 
@@ -492,41 +461,6 @@ public class GPSMulti : MonoBehaviour
         return createdObj;
     }
 
-<<<<<<< HEAD
-    private bool ShouldProjectToHorizon(POIType poiType)
-    {
-        return poiType == POIType.CollisionPoint ||
-               poiType == POIType.OtherShip ||
-               poiType == POIType.General ||
-               poiType == POIType.ShipPassingBy ||
-               poiType == POIType.RedLighthouse ||
-               poiType == POIType.GreenLighthouse ||
-               poiType == POIType.Reef ||
-               poiType == POIType.Wreck ||
-               poiType == POIType.UnknownDanger ||
-               poiType == POIType.MooringBuoy ||
-               poiType == POIType.SpecialPurposeBuoy;
-    }
-
-    private Vector3 ProjectOntoHorizon(Vector3 point)
-    {
-        if (!isHorizonCalibrated) return point;
-
-        Vector3 toPoint = point - horizonOrigin;
-        float distance = Vector3.Dot(toPoint, horizonNormal);
-
-        Vector3 projectedPoint = point - distance * horizonNormal;
-        Debug.Log($"Point {point} projected to {projectedPoint} on the horizon.");
-
-        return point - distance * horizonNormal;
-    }
-
-
-    Vector3 CalculateObjectLocalPosition(double latitude, double longitude)
-    {
-        double latOffset = (latitude - myLatitude) * 111000.0;  // meters per latitude degree
-        double lonOffset = (longitude - myLongitude) * (111000.0 * Mathf.Cos((float)(myLatitude * Mathf.PI / 180.0)));
-=======
     float GetFlatDistanceOfTwoPoints(Vector3 point1, Vector3 point2)
     {
         Vector3 difference = point2 - point1;
@@ -712,7 +646,6 @@ public class GPSMulti : MonoBehaviour
     {
         double latOffset = (latitude - referenceLatitude) * 111000.0;  // meters per latitude degree
         double lonOffset = (longitude - referenceLongitude) * (111000.0 * Mathf.Cos((float)(referenceLatitude * Mathf.PI / 180.0)));
->>>>>>> master
         return new Vector3((float)lonOffset, 0, (float)latOffset); // Changed Y to 0 for visualization on a flat plane
     }
 
@@ -1114,79 +1047,7 @@ public class GPSMulti : MonoBehaviour
         ToggleUncertaintyRouteLineOnMap(true);
     }
 
-<<<<<<< HEAD
-    // Function to set the horizon calibration
-    public void CalibrateHorizon(Vector3 origin, Vector3 normal)
-    {
-        horizonOrigin = origin;
-        horizonNormal = normal;
-        isHorizonCalibrated = true;
-        Debug.Log("Horizon calibrated: Origin = " + horizonOrigin + ", Normal = " + horizonNormal);
-    }
 
-    public void AlignHorizon()
-    {
-        if (HorizonLine != null)
-        {
-            Vector3 origin = HorizonLine.transform.position;
-            Vector3 normal = Vector3.up; // Assuming the line is parallel to the ground.
-
-            CalibrateHorizon(origin, normal);
-
-        }
-        else
-        {
-            Debug.LogError("HorizonLine is not assigned.");
-        }
-    }
-
-    public void UpdateAllPOIsToHorizon()
-    {
-        foreach (var poiList in spawnedObjects.Values)
-        {
-            foreach (GameObject poi in poiList)
-            {
-                if (poi != null)
-                {
-                    Vector3 position = poi.transform.position;
-                    poi.transform.position = ProjectOntoHorizon(position);
-                    Debug.Log($"Updated POI {poi.name} to position {poi.transform.position}");
-                }
-            }
-        }
-    }
-
-    public void SnapAllPOIsToLineHeight()
-    {
-        // Ensure we have a valid HorizonLine assigned in the Inspector
-        if (HorizonLine == null)
-        {
-            Debug.LogError("HorizonLine GameObject is not assigned.");
-            return;
-        }
-
-        // Get the line/cube's current Y position
-        float horizonY = HorizonLine.transform.position.y;
-
-        // Iterate over all spawned POIs and snap their Y to horizonY
-        foreach (var poiList in spawnedObjects.Values)
-        {
-            foreach (GameObject poi in poiList)
-            {
-                if (poi != null)
-                {
-                    Vector3 currentPos = poi.transform.position;
-                    currentPos.y = horizonY;
-                    poi.transform.position = currentPos;
-                }
-            }
-        }
-
-        Debug.Log($"All POIs snapped to Y = {horizonY} (the HorizonLine's height).");
-    }
-=======
-
->>>>>>> master
 
     public void clearSpawnedObjectsByType(POIType poiType)
     {
@@ -1207,8 +1068,6 @@ public class GPSMulti : MonoBehaviour
         }
     }
 
-<<<<<<< HEAD
-=======
     void testReferenceCoordinatesUpdate()
     {
         referenceLatitude = double.Parse(referenceCoordinates.Split(',')[0].Trim());
@@ -1218,6 +1077,5 @@ public class GPSMulti : MonoBehaviour
         mapGameObject.GetComponentInParent<MapAndPlayerManager>().SetCoordinates(new Vector2d(referenceLatitude, referenceLongitude));
     }
 
->>>>>>> master
 
 }
