@@ -29,15 +29,6 @@ namespace MixedReality.Toolkit.Examples.Demos
         private StatefulInteractable perfOverlayToggle;
 
         [SerializeField]
-        private StatefulInteractable previousSceneButton;
-
-        [SerializeField]
-        private StatefulInteractable nextSceneButton;
-
-        [SerializeField]
-        private TMP_Text sceneTitleLabel;
-
-        [SerializeField]
         private GameObject profilerObject;
 
         /// <summary>
@@ -50,9 +41,6 @@ namespace MixedReality.Toolkit.Examples.Demos
 
             rayToggle.OnClicked.AddListener(() => SetHandRaysActive(rayToggle.IsToggled));
             gazePinchToggle.OnClicked.AddListener(() => SetGazePinchActive(gazePinchToggle.IsToggled));
-            
-            previousSceneButton.enabled = IsSceneValid(SceneManager.GetActiveScene().buildIndex - 1);
-            nextSceneButton.enabled = IsSceneValid(SceneManager.GetActiveScene().buildIndex + 1);
 
             SimpleProfiler profiler = FindObjectUtility.FindFirstObjectByType<SimpleProfiler>(true);
             if (profiler != null)
@@ -65,13 +53,8 @@ namespace MixedReality.Toolkit.Examples.Demos
                 // Removes button if no profiler found in scene.
                 perfOverlayToggle.gameObject.SetActive(false);
             }
-
-            previousSceneButton.OnClicked.AddListener(() => GoToPreviousScene());
-            nextSceneButton.OnClicked.AddListener(() => GoToNextScene());
-
-            sceneTitleLabel.text = SceneManager.GetActiveScene().name + ".unity";
         }
-        
+
         /// <summary>
         /// Toggle hand rays.
         /// </summary>

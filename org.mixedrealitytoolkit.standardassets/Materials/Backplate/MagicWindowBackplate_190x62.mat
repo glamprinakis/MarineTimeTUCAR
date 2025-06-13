@@ -193,7 +193,7 @@ Material:
     - _StencilComparison: 7
     - _StencilOperation: 2
     - _StencilReadMask: 255
-    - _StencilReference: 2
+    - _StencilReference: 3
     - _StencilWriteMask: 255
     - _TriplanarMappingBlendSharpness: 4
     - _UVSec: 0

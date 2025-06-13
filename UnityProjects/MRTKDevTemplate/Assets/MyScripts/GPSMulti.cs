@@ -161,14 +161,14 @@ public class GPSMulti : MonoBehaviour
         { POIType.SpecialPurposeBuoy, SpecialPurposeBuoyMapPrefab }
     };
 
-        // Initialize the spawnedObjects dictionary with empty lists for all POI types
-        foreach (POIType poiType in Enum.GetValues(typeof(POIType)))
-        {
-            if (!spawnedObjects.ContainsKey(poiType))
-            {
-                spawnedObjects[poiType] = new List<GameObject>();
-            }
-        }
+        /*         // Initialize the spawnedObjects dictionary with empty lists for all POI types
+                foreach (POIType poiType in Enum.GetValues(typeof(POIType)))
+                {
+                    if (!spawnedObjects.ContainsKey(poiType))
+                    {
+                        spawnedObjects[poiType] = new List<GameObject>();
+                    }
+                } */
     }
 
 
@@ -257,19 +257,20 @@ public class GPSMulti : MonoBehaviour
         // Spawn static objects
         foreach (var coord in staticCoordinates)
         {
-            GameObject pointObject = SpawnObjectAtLocation(coord);
-            spawnedObjects[coord.POIType].Add(pointObject); // Store the GameObject
+            SpawnObjectAtLocation(coord);
+            //spawnedObjects[coord.POIType].Add(pointObject); // Store the GameObject
         }
-        StartHorizonCalibration();
-        Debug.Log(" Static" + spawnedObjects[POIType.General].Count);
+        //Debug.Log(" Static" + spawnedObjects[POIType.General].Count);
 
         // Spawn route objects
         foreach (var coord in RoutecCoordinates)
         {
-            GameObject pointObject = SpawnObjectAtLocation(coord);
-            spawnedObjects[coord.POIType].Add(pointObject);
+            SpawnObjectAtLocation(coord);
+            //spawnedObjects[coord.POIType].Add(pointObject);
         }
 
+        StartHorizonCalibration();
+        //print("RoutecCoordinates count: " + RoutecCoordinates.Count);
         /*         if (DataDeserialization.Instance != null)
                 {
                     ShipData shipData = DataDeserialization.Instance.ShipData;
@@ -320,62 +321,66 @@ public class GPSMulti : MonoBehaviour
 
     private void Update()
     {
-        int myRoutePointCount = spawnedObjects[POIType.MyRoutePoint].Count;
-        int otherRoutePointCount = spawnedObjects[POIType.OtherRoutePoint].Count;
-
-        if (myRoutePointCount > 0)
+        if (spawnedObjects.ContainsKey(POIType.MyRoutePoint))
         {
-            // Update certain line renderer positions (no width change)
-            myRouteLineRenderer.positionCount = myRoutePointCount;
-            for (int i = 0; i < myRoutePointCount; i++)
+            int myRoutePointCount = spawnedObjects[POIType.MyRoutePoint].Count;
+            if (myRoutePointCount > 0)
             {
-                if (spawnedObjects[POIType.MyRoutePoint][i] != null)
+                // Update certain line renderer positions (no width change)
+                myRouteLineRenderer.positionCount = myRoutePointCount;
+                for (int i = 0; i < myRoutePointCount; i++)
                 {
-                    myRouteLineRenderer.SetPosition(i, spawnedObjects[POIType.MyRoutePoint][i].transform.position);
+                    if (spawnedObjects[POIType.MyRoutePoint][i] != null)
+                    {
+                        myRouteLineRenderer.SetPosition(i, spawnedObjects[POIType.MyRoutePoint][i].transform.position);
+                    }
                 }
-            }
 
-            // Update uncertain line renderer positions (with progressive width change)
-            myRouteUncertainLineRenderer.positionCount = myRoutePointCount;
-            SetLineRendererWidthProgressive(myRouteUncertainLineRenderer, myRouteUncertainStartWidth, myRouteUncertainEndWidth);
-            for (int i = 0; i < myRoutePointCount; i++)
-            {
-                if (spawnedObjects[POIType.MyRoutePoint][i] != null)
+                // Update uncertain line renderer positions (with progressive width change)
+                myRouteUncertainLineRenderer.positionCount = myRoutePointCount;
+                SetLineRendererWidthProgressive(myRouteUncertainLineRenderer, myRouteUncertainStartWidth, myRouteUncertainEndWidth);
+                for (int i = 0; i < myRoutePointCount; i++)
                 {
-                    Vector3 offsetPosition = spawnedObjects[POIType.MyRoutePoint][i].transform.position;
-                    offsetPosition.y += myRouteUncertainYOffset;
-                    myRouteUncertainLineRenderer.SetPosition(i, offsetPosition);
+                    if (spawnedObjects[POIType.MyRoutePoint][i] != null)
+                    {
+                        Vector3 offsetPosition = spawnedObjects[POIType.MyRoutePoint][i].transform.position;
+                        offsetPosition.y += myRouteUncertainYOffset;
+                        myRouteUncertainLineRenderer.SetPosition(i, offsetPosition);
+                    }
                 }
             }
+            AdjustDirectionsForPoints(POIType.MyRoutePoint);
         }
-
-        if (otherRoutePointCount > 0)
+        if (spawnedObjects.ContainsKey(POIType.OtherRoutePoint))
         {
-            // Update certain line renderer positions (no width change)
-            otherRouteLineRenderer.positionCount = otherRoutePointCount;
-            for (int i = 0; i < otherRoutePointCount; i++)
+            int otherRoutePointCount = spawnedObjects[POIType.OtherRoutePoint].Count;
+            if (otherRoutePointCount > 0)
             {
-                if (spawnedObjects[POIType.OtherRoutePoint][i] != null)
+                // Update certain line renderer positions (no width change)
+                otherRouteLineRenderer.positionCount = otherRoutePointCount;
+                for (int i = 0; i < otherRoutePointCount; i++)
                 {
-                    otherRouteLineRenderer.SetPosition(i, spawnedObjects[POIType.OtherRoutePoint][i].transform.position);
+                    if (spawnedObjects[POIType.OtherRoutePoint][i] != null)
+                    {
+                        otherRouteLineRenderer.SetPosition(i, spawnedObjects[POIType.OtherRoutePoint][i].transform.position);
+                    }
                 }
-            }
 
-            // Update uncertain line renderer positions (with progressive width change)
-            otherRouteUncertainLineRenderer.positionCount = otherRoutePointCount;
-            SetLineRendererWidthProgressive(otherRouteUncertainLineRenderer, otherRouteUncertainStartWidth, otherRouteUncertainEndWidth);
-            for (int i = 0; i < otherRoutePointCount; i++)
-            {
-                if (spawnedObjects[POIType.OtherRoutePoint][i] != null)
+                // Update uncertain line renderer positions (with progressive width change)
+                otherRouteUncertainLineRenderer.positionCount = otherRoutePointCount;
+                SetLineRendererWidthProgressive(otherRouteUncertainLineRenderer, otherRouteUncertainStartWidth, otherRouteUncertainEndWidth);
+                for (int i = 0; i < otherRoutePointCount; i++)
                 {
-                    Vector3 offsetPosition = spawnedObjects[POIType.OtherRoutePoint][i].transform.position;
-                    offsetPosition.y += otherRouteUncertainYOffset;
-                    otherRouteUncertainLineRenderer.SetPosition(i, offsetPosition);
+                    if (spawnedObjects[POIType.OtherRoutePoint][i] != null)
+                    {
+                        Vector3 offsetPosition = spawnedObjects[POIType.OtherRoutePoint][i].transform.position;
+                        offsetPosition.y += otherRouteUncertainYOffset;
+                        otherRouteUncertainLineRenderer.SetPosition(i, offsetPosition);
+                    }
                 }
             }
+            AdjustDirectionsForPoints(POIType.OtherRoutePoint);
         }
-
-        AdjustPointDirections();
     }
 
 
@@ -522,28 +527,57 @@ public class GPSMulti : MonoBehaviour
         HorizonLine.transform.localScale = Vector3.LerpUnclamped(horizonLineScaleAtUser, horizonLineScaleAtFurthest, t);
     }
 
+    /// <summary>
+    /// Scales a line object horizontally to match the field of view at its current distance
+    /// </summary>
+    /// <param name="lineObject">The line object to scale</param>
+    /// <param name="fieldOfViewWidthDegrees">HoloLens horizontal FOV (approximately 35 degrees)</param>
+    /// <param name="originalWidth">Original width of the line (optional)</param>
+    /// <param name="widthMultiplier">Optional multiplier to adjust the calculated width</param>
+    public void ScaleLineToMatchFieldOfView(
+        GameObject lineObject,
+        float fieldOfViewWidthDegrees = 52f,
+        float? originalWidth = null,
+        float widthMultiplier = 1.0f)
+    {
+        // Get reference to the camera
+        Camera viewCamera = Camera.main;
+
+        if (viewCamera == null || lineObject == null)
+            return;
+
+        // Get distance from the camera to the line object
+        float distance = Vector3.Distance(viewCamera.transform.position, lineObject.transform.position);
+
+        // Calculate width needed at this distance to fill the field of view
+        float width = 2f * Mathf.Tan(fieldOfViewWidthDegrees * 0.5f * Mathf.Deg2Rad) * distance;
+
+        // Apply width multiplier
+        width *= widthMultiplier;
+
+        // Get original scale
+        Vector3 currentScale = lineObject.transform.localScale;
+        float actualOriginalWidth = originalWidth.HasValue ? originalWidth.Value : currentScale.x;
+
+        // Calculate new scale for X dimension only
+        float scaleFactor = width / actualOriginalWidth;
+        Vector3 newScale = currentScale;
+        newScale.x = actualOriginalWidth * scaleFactor;
+
+        // Apply the new scale
+        lineObject.transform.localScale = newScale;
+    }
+
 
     public void UpdateOtherPOIScales()
     {
         Vector3 userPosition = Camera.main.transform.position;
 
-        foreach (var kv in spawnedObjects)
+        foreach (var poi in spawnedObjects[POIType.MyRoutePoint])
         {
-            bool isAdjustedType = poiTypesToAdjust.Contains(kv.Key);
-            foreach (var poi in kv.Value)
-            {
-                if (isAdjustedType)
-                {
-                    // Main/general POIs: do NOT change their scale (keep prefab's default)
-                    continue;
-                }
-                else
-                {
-                    // Only scale the "other" POIs by distance
-                    float distance = Vector3.Distance(userPosition, poi.transform.position);
-                    ScaleObjectByDistance(poi.transform, distance, poiScaleAtUser, poiScaleAtFurthest);
-                }
-            }
+            // Scale MyRoutePoints based on distance from user
+            float distance = Vector3.Distance(userPosition, poi.transform.position);
+            ScaleObjectByDistance(poi.transform, distance, poiScaleAtUser, poiScaleAtFurthest);
         }
     }
 
@@ -557,16 +591,19 @@ public class GPSMulti : MonoBehaviour
         furthestPOI = null;
 
         // Look for the furthest POI (regardless of type)
-        foreach (var poiList in spawnedObjects.Values)
+        if (spawnedObjects.ContainsKey(POIType.MyRoutePoint))
         {
-            foreach (var poi in poiList)
+            print("Checking MyRoutePoint for furthest distance...");
+            foreach (var poi in spawnedObjects[POIType.MyRoutePoint])
             {
+                print("Checking MyRoutePoint: " + poi.name);
                 Vector2 userXZ = new Vector2(userPos.x, userPos.z);
                 Vector2 poiXZ = new Vector2(poi.transform.position.x, poi.transform.position.z);
                 float dist = Vector2.Distance(userXZ, poiXZ);
                 if (dist > furthestDistance)
                 {
                     furthestDistance = dist;
+                    furthestReferenceDistance = dist; // Update reference distance for furthest POI
                     furthestPOI = poi;
                 }
             }
@@ -580,12 +617,13 @@ public class GPSMulti : MonoBehaviour
 
         // Place the horizon line in front of the user at the furthest distance (in the look direction)
         Vector3 forward = Camera.main.transform.forward;
-        forward.y = 0; forward.Normalize();
+        //forward.y = 0; forward.Normalize();
         Vector3 targetPos = userPos + forward * furthestDistance;
 
         HorizonLine.transform.position = targetPos;
-        HorizonLine.transform.rotation = Quaternion.LookRotation(-forward, Vector3.up);
+        //HorizonLine.transform.rotation = Quaternion.LookRotation(-forward, Vector3.up);
         UpdateHorizonLineScale(HorizonLine.transform.position);
+        //ScaleLineToMatchFieldOfView(HorizonLine);
         Debug.Log("Horizon line moved for calibration.");
     }
 
@@ -599,43 +637,36 @@ public class GPSMulti : MonoBehaviour
         }
 
         float horizonYAtFurthest = HorizonLine.transform.position.y;
-
-        foreach (var kv in spawnedObjects)
+        print("Horizon Y at furthest: " + horizonYAtFurthest);
+        foreach (var poi in spawnedObjects[POIType.MyRoutePoint])
         {
-            bool isAdjustedType = poiTypesToAdjust.Contains(kv.Key);
-            foreach (var poi in kv.Value)
+            Vector3 poiPos = poi.transform.position;
+            float poiDistance = Vector2.Distance(
+                new Vector2(userPos.x, userPos.z),
+                new Vector2(poiPos.x, poiPos.z)
+            );
+            float newY;
+            /*if (isAdjustedType)
             {
-                Vector3 poiPos = poi.transform.position;
-                float poiDistance = Vector2.Distance(
-                    new Vector2(userPos.x, userPos.z),
-                    new Vector2(poiPos.x, poiPos.z)
-                );
-                float newY;
+                // General POIs: Clamp to horizon
+                float t = furthestDistance > 0f ? Mathf.Clamp01(poiDistance / furthestDistance) : 0f;
+                newY = Mathf.Lerp(userY, horizonYAtFurthest, t);
+                poi.transform.position = new Vector3(poiPos.x, newY, poiPos.z);
+            } */
 
-                if (isAdjustedType)
-                {
-                    // General POIs: Clamp to horizon
-                    float t = furthestDistance > 0f ? Mathf.Clamp01(poiDistance / furthestDistance) : 0f;
-                    newY = Mathf.Lerp(userY, horizonYAtFurthest, t);
-                    poi.transform.position = new Vector3(poiPos.x, newY, poiPos.z);
-                }
-                else
-                {
-                    // Route/other POIs: Ramp up, don't clamp top, so points beyond reference keep going
-                    float t = (poiDistance - userReferenceDistance) / (furthestReferenceDistance - userReferenceDistance);
-                    t = Mathf.Max(0, t);
-                    newY = Mathf.LerpUnclamped(otherPOIsStartY, horizonYAtFurthest, t);
+            // Route/other POIs: Ramp up, don't clamp top, so points beyond reference keep going
+            float t = (poiDistance - userReferenceDistance) / (furthestReferenceDistance - userReferenceDistance);
+            t = Mathf.Max(0, t);
+            newY = Mathf.LerpUnclamped(otherPOIsStartY, horizonYAtFurthest, t);
+            print("POI: " + poi.name + " Distance: " + poiDistance + " t: " + t + " New Y: " + newY);
 
-                    // Place the POI
-                    poi.transform.position = new Vector3(poiPos.x, newY, poiPos.z);
+            // Place the POI
+            poi.transform.position = new Vector3(poiPos.x, newY, poiPos.z);
 
-                    // --- Add rotation to follow the ramp angle ---
-                    // Get the ramp direction (in XZ) from the ramp's start to end (horizon)
-                    Vector3 rampDirection = (HorizonLine.transform.position - new Vector3(userPos.x, horizonYAtFurthest, userPos.z)).normalized;
-                    poi.transform.rotation = Quaternion.LookRotation(rampDirection, Vector3.up);
-                }
-
-            }
+            // --- Add rotation to follow the ramp angle ---
+            // Get the ramp direction (in XZ) from the ramp's start to end (horizon)
+            Vector3 rampDirection = (HorizonLine.transform.position - new Vector3(userPos.x, horizonYAtFurthest, userPos.z)).normalized;
+            poi.transform.rotation = Quaternion.LookRotation(rampDirection, Vector3.up);
         }
         UpdateOtherPOIScales();
         Debug.Log("All POIs aligned (general types on horizon, others ramping up).");
@@ -651,11 +682,6 @@ public class GPSMulti : MonoBehaviour
         return new Vector3((float)lonOffset, 0, (float)latOffset); // Changed Y to 0 for visualization on a flat plane
     }
 
-    void AdjustPointDirections()
-    {
-        AdjustDirectionsForPoints(POIType.MyRoutePoint);
-        AdjustDirectionsForPoints(POIType.OtherRoutePoint);
-    }
 
     void AdjustDirectionsForPoints(POIType pointType)
     {

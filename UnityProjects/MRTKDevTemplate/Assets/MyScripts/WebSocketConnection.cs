@@ -481,7 +481,7 @@ public class WebSocketConnection : MonoBehaviour
                         POIType = POIType.MyRoutePoint
                     };
                     GameObject pointObject = spawner.SpawnObjectAtLocation(coordinates);
-                    spawner.spawnedObjects[coordinates.POIType].Add(pointObject);
+                    //spawner.spawnedObjects[coordinates.POIType].Add(pointObject);
                     //Debug.Log("Ship 1111111: " + ship1TrajLat[i] + ship1TrajLon[i]);
                 }
 
@@ -500,7 +500,7 @@ public class WebSocketConnection : MonoBehaviour
                         POIType = POIType.OtherRoutePoint
                     };
                     GameObject pointObject = spawner.SpawnObjectAtLocation(coordinates);
-                    spawner.spawnedObjects[coordinates.POIType].Add(pointObject);
+                    //spawner.spawnedObjects[coordinates.POIType].Add(pointObject);
                     //Debug.Log("Ship 222222: " + ship2TrajLat[i] + ship2TrajLon[i]);
                 }
 
@@ -518,7 +518,7 @@ public class WebSocketConnection : MonoBehaviour
                     POIType = POIType.CollisionPoint
                 };
                 GameObject pointObject = spawner.SpawnObjectAtLocation(coordinates);
-                spawner.spawnedObjects[coordinates.POIType].Add(pointObject);
+                //spawner.spawnedObjects[coordinates.POIType].Add(pointObject);
                 //Debug.Log("Ship 222222: " + ship2TrajLat[i] + ship2TrajLon[i]);
             }
 
