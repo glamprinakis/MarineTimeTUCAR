@@ -2,13 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class PoiDistanceUpdater : MonoBehaviour
 {
     private Transform _userTransform;
     public TextMeshProUGUI poiDistanceText;
     public float refresh_rate = 1;
+    public static float POIScale = 120f; // Factor to adjust the perceived size of the object
+
+    public static float POIHeight = 25f;
     // Start is called before the first frame update
+
     void Start()
     {
         _userTransform = Camera.main.transform;
@@ -21,6 +26,8 @@ public class PoiDistanceUpdater : MonoBehaviour
             Debug.LogWarning("InfoPanelController not found");
             throw;
         }
+
+        InvokeRepeating("MaintainSize", 0f, 5f); // Call MaintainSize every 0.1 seconds
     }
 
     IEnumerator UpdateDistance()
@@ -33,6 +40,24 @@ public class PoiDistanceUpdater : MonoBehaviour
             if (poiDistanceText != null)
                 poiDistanceText.text = $"{distance:F2} m";
             yield return new WaitForSeconds(refresh_rate); // Wait for 1 second
+        }
+    }
+
+    //i will attach this scrip to the POI object and i want a funtion to maintain the same percetive size no mater how far the camera is from the object
+    public void MaintainSize()
+    {
+        if (Camera.main != null)
+        {
+            float distance = Vector3.Distance(Camera.main.transform.position, transform.position);
+            float scaleFactor = distance / POIScale; // Adjust the divisor to change the perceived size
+            transform.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
+
+            //adjust also the y possition of the object, if it will be infront of me it will be in the same height as the camera and as it gets further away it will be higher
+            Vector3 cameraPosition = Camera.main.transform.position;
+            Vector3 newPosition = transform.position;
+            newPosition.y = cameraPosition.y + (distance / POIHeight); // Adjust the height based on distance
+            transform.position = newPosition;
+
         }
     }
 }

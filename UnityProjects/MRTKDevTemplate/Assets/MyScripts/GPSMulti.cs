@@ -270,6 +270,7 @@ public class GPSMulti : MonoBehaviour
         }
 
         StartHorizonCalibration();
+        AdjustOtherRoutePointsY(adjustmentAmount);
         //print("RoutecCoordinates count: " + RoutecCoordinates.Count);
         /*         if (DataDeserialization.Instance != null)
                 {
@@ -465,6 +466,7 @@ public class GPSMulti : MonoBehaviour
         }
         spawnedObjects[coord.POIType].Add(createdObj);
         SpawnPOIForMap(coord);
+
         return createdObj;
     }
 
@@ -579,8 +581,51 @@ public class GPSMulti : MonoBehaviour
             float distance = Vector3.Distance(userPosition, poi.transform.position);
             ScaleObjectByDistance(poi.transform, distance, poiScaleAtUser, poiScaleAtFurthest);
         }
+
+        /*  foreach (var poi in spawnedObjects[POIType.OtherRoutePoint])
+         {
+             // Scale OtherRoutePoints based on distance from user
+             float distance = Vector3.Distance(userPosition, poi.transform.position);
+             ScaleObjectByDistance(poi.transform, distance, poiScaleAtUser, poiScaleAtFurthest);
+         } */
+
     }
 
+    //function that will chage the y possition of the otheroutepoints by a certain amount. find the average distance of the pois and for each meter reduce the y by 0.1f 
+    public float adjustmentAmount = 0.04f;
+    public void AdjustOtherRoutePointsY(float adjustmentAmount)
+    {
+        if (!spawnedObjects.ContainsKey(POIType.OtherRoutePoint))
+        {
+            Debug.LogWarning("No OtherRoutePoints found to adjust.");
+            return;
+        }
+
+        Vector3 userPosition = Camera.main.transform.position;
+        float totalDistance = 0f;
+        int poiCount = spawnedObjects[POIType.OtherRoutePoint].Count;
+
+        // Calculate total distance from user to each OtherRoutePoint
+        foreach (var poi in spawnedObjects[POIType.OtherRoutePoint])
+        {
+            float distance = Vector3.Distance(userPosition, poi.transform.position);
+            ScaleObjectByDistance(poi.transform, distance, poiScaleAtUser, poiScaleAtFurthest);
+            totalDistance += distance;
+        }
+
+        // Calculate average distance
+        float averageDistance = poiCount > 0 ? totalDistance / poiCount : 0f;
+
+        // Adjust Y position of each OtherRoutePoint
+        foreach (var poi in spawnedObjects[POIType.OtherRoutePoint])
+        {
+            Vector3 poiPosition = poi.transform.position;
+            poiPosition.y -= averageDistance * adjustmentAmount; // Adjust Y by average distance * adjustment amount
+            poi.transform.position = poiPosition;
+        }
+
+        Debug.Log($"Adjusted {poiCount} OtherRoutePoints by {adjustmentAmount} per meter based on average distance of {averageDistance}.");
+    }
 
     // === STATE 1: Find furthest point (from ALL POIs), move line there ===
     public void StartHorizonCalibration()

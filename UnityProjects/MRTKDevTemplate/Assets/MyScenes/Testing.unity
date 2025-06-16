@@ -31504,10 +31504,10 @@ MonoBehaviour:
   rightInteractor: {fileID: 0}
   trackedTargetType: 2
   trackedHandedness: 1
-  trackedHandJoint: 1
+  trackedHandJoint: 0
   transformOverride: {fileID: 0}
   additionalOffset: {x: 0, y: 0, z: 0}
-  additionalRotation: {x: 0, y: 0, z: 0}
+  additionalRotation: {x: -20, y: 0, z: 0}
   updateSolvers: 1
 --- !u!1 &1117309040
 GameObject:
@@ -38735,7 +38735,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1432735407
 Transform:
   m_ObjectHideFlags: 0
@@ -46616,6 +46616,14 @@ MonoBehaviour:
     POIType: 3
   - coordinates: 35.530491888478245, 24.073612981547434
     POIType: 3
+  - coordinates: 35.530491888478245, 24.073612981547434
+    POIType: 3
+  - coordinates: 35.531976049860326, 24.06902137332541
+    POIType: 4
+  - coordinates: 35.531606340775284, 24.069023480011428
+    POIType: 4
+  - coordinates: 35.53103343788895, 24.06887541398102
+    POIType: 4
   areaCoordinates: []
   areaMaterial: {fileID: 2100000, guid: 492feb8fbe3084647911b9b278546c07, type: 2}
   areaMapMaterial: {fileID: 2100000, guid: 5e09074ac8746bb459b083f6df6a6bc3, type: 2}
@@ -46671,6 +46679,7 @@ MonoBehaviour:
   horizonLineScaleAtFurthest: {x: 1.8543e+10, y: 235.735, z: 1}
   poiScaleAtUser: {x: 0.1, y: 0.1, z: 0.1}
   poiScaleAtFurthest: {x: 1.8, y: 1.8, z: 1.8}
+  adjustmentAmount: 0.04
 --- !u!114 &1749263606
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -46687,7 +46696,7 @@ MonoBehaviour:
   ip: 147.27.41.154
   isApplicationQuitting: 0
   attempt: 0
-  uniqueID: 10
+  uniqueID: 1
   mapManager: {fileID: 173206262}
   spawner: {fileID: 1749263605}
   pairingManager: {fileID: 646167866}
@@ -46726,6 +46735,8 @@ MonoBehaviour:
   alternatePanelMaterial: {fileID: 2100000, guid: 3ba85e64e9167fb418e32b4c126789b3, type: 2}
   deleteButtonPrefab: {fileID: 2752462099061773960, guid: 05dcb9c796949f34a9465913c7c60675, type: 3}
   panelMakingActive: 0
+  smoothSpeed: 10
+  ballUpdateDistanceThreshhold: 0.1
   panelParentTransform: {fileID: 2011690298}
 --- !u!1 &1750471959
 GameObject:
@@ -54381,7 +54392,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1986621359
 Transform:
   m_ObjectHideFlags: 0

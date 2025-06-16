@@ -56,6 +56,9 @@ public class SimplePinchDetector : MonoBehaviour
 
     private UnityUISlider holdSliderInstance;
 
+    public float smoothSpeed = 10.0f; // Speed for smooth marker movement
+    public float ballUpdateDistanceThreshhold = 2.0f; // Distance for raycasting
+
     /// <summary>
     /// Temporary corner markers (spawned on each pinch).
     /// Destroyed as soon as the panel is finalized OR if the user decides to cancel.
@@ -71,7 +74,7 @@ public class SimplePinchDetector : MonoBehaviour
         corners = new Vector3[totalCorners];
         InitializePreviewMarker();
     }
-    
+
 
     public void toogleMarkerVisibility()
     {
@@ -134,7 +137,11 @@ public class SimplePinchDetector : MonoBehaviour
     {
         if (previewMarkerInstance != null)
         {
-            previewMarkerInstance.transform.position = currentHitPoint;
+            float distance = Vector3.Distance(previewMarkerInstance.transform.position, currentHitPoint);
+            if (distance > ballUpdateDistanceThreshhold) // Adjust threshold as needed
+            {
+                previewMarkerInstance.transform.position = Vector3.Lerp(previewMarkerInstance.transform.position, currentHitPoint, Time.deltaTime * smoothSpeed);
+            }
         }
     }
 
@@ -228,7 +235,7 @@ public class SimplePinchDetector : MonoBehaviour
         }
     }
 
-        private void BuildMeshAtCorners()
+    private void BuildMeshAtCorners()
     {
         if (corners.Length < 4)
         {
@@ -421,7 +428,7 @@ public class SimplePinchDetector : MonoBehaviour
 
         // Reset corner data
         ResetCornerPlacement();
-        
+
         Debug.Log("Cancelled the in-progress panel creation.");
     }
 
@@ -489,7 +496,7 @@ public class SimplePinchDetector : MonoBehaviour
                 {
                     child.gameObject.SetActive(false);
                 }
-                
+
                 // Hide the delete button
                 var pressable = child.GetComponent<PressableButton>();
                 if (pressable != null)
