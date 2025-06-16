@@ -13,9 +13,19 @@ public class PoiDistanceUpdater : MonoBehaviour
 
     public static float POIHeight = 25f;
     // Start is called before the first frame update
+    public SimplePOIInformer infoPanelController;
 
     void Start()
     {
+        if (infoPanelController == null)
+        {
+            infoPanelController = FindObjectOfType<SimplePOIInformer>();
+            if (infoPanelController == null)
+            {
+                Debug.LogWarning("SimplePOIInformer not found in the scene.");
+                return;
+            }
+        }
         _userTransform = Camera.main.transform;
         try
         {
@@ -58,6 +68,27 @@ public class PoiDistanceUpdater : MonoBehaviour
             newPosition.y = cameraPosition.y + (distance / POIHeight); // Adjust the height based on distance
             transform.position = newPosition;
 
+        }
+    }
+
+    public void PoiInfoPanel()
+    {
+        if (infoPanelController != null)
+        {
+            infoPanelController.ShowInfoPanel();
+            string poiName = gameObject.name; // Get the name of the POI GameObject
+
+            Vector3 worldCoordinates = transform.position;
+
+            string infoText = $"<b>{poiName}</b>\n";
+            infoText += $"Distance: {poiDistanceText.text}\n";
+            infoText += $"Coordinates: {worldCoordinates.x:F2}, {worldCoordinates.y:F2}, {worldCoordinates.z:F2}";
+
+            infoPanelController.SetInfoText("POI Info", infoText);
+        }
+        else
+        {
+            Debug.LogWarning("InfoPanelController is not set.");
         }
     }
 }
